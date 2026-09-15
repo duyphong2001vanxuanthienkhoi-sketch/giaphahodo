@@ -176,10 +176,29 @@ Ba cách xử lý:
 
 ---
 
-## 8. Một cái bẫy của Neon, đã xử lý sẵn
+## 8. Cái bẫy của Neon — và vì sao test không được dùng chung database
 
-Neon dùng bộ gộp kết nối (PgBouncer) và **tái sử dụng kết nối giữa các ứng dụng khác nhau**. Một `SET search_path` do client khác để lại có thể bám vào kết nối mà app bạn nhận được, trỏ app vào một schema không tồn tại — lỗi này đã thực sự xảy ra trong lúc phát triển.
+Neon có hai đầu nối tới cùng một database: đầu **pooled** (tên máy có `-pooler`, chạy qua PgBouncer kiểu *transaction pooling*) và đầu **trực tiếp** (bỏ `-pooler` đi).
 
-`server/db.js` vì thế **luôn đặt `search_path` tường minh** trên mỗi kết nối vật lý, không bao giờ tin giá trị sẵn có. Bạn không phải làm gì, chỉ cần biết để đừng gỡ dòng đó.
+Ở đầu pooled, một câu lệnh nằm ngoài transaction được trả kết nối máy chủ về bể **ngay khi chạy xong**. Nghĩa là `SET search_path` mà app đặt lúc mở kết nối **không chắc còn hiệu lực cho câu lệnh kế tiếp**: câu đó có thể rơi vào một kết nối đang mang `search_path` của người khác.
 
-Cũng vì vậy, **đừng dùng chung một database Neon cho cả chạy thật lẫn chạy test**. Tạo một branch riêng trên Neon cho test.
+Chuyện này đã thật sự xảy ra. Bộ test từng được chạy thẳng vào database của bản chạy thật; mỗi fixture tạo một schema `test_xxxx` rồi trỏ `search_path` sang đó, và giá trị ấy bám lại trên kết nối dùng chung. Trang web đang chạy vớ phải kết nối đó và trả về
+
+```
+Đỗ Gia chưa khởi động được: relation "users" does not exist
+```
+
+— mỗi lần gọi lại kêu thiếu một bảng khác, trong khi toàn bộ dữ liệu vẫn nằm yên trong `public`. Lỗi tự hết đúng lúc bộ test chạy xong. Chiều ngược lại cũng đúng: vài dòng dữ liệu test đã lọt vào bảng thật.
+
+Vì vậy:
+
+- `server/db.js` **luôn đặt `search_path` tường minh** trên mỗi kết nối vật lý. Đừng gỡ dòng đó — nó đủ cho mọi trường hợp bình thường.
+- Bộ test **không bao giờ đọc `DATABASE_URL`**. `tests/database.js` chỉ nhận `TEST_DATABASE_URL`, và từ chối chạy nếu biến đó trỏ vào cùng database với `DATABASE_URL` (so sánh sau khi bỏ `-pooler`, vì hai đầu nối chỉ là một database).
+- Muốn chạy test trên Postgres thật thì tạo một **branch riêng** trên Neon (Branches → New branch), lấy **chuỗi kết nối trực tiếp** của branch đó (bỏ `-pooler`) rồi chạy:
+
+  ```bash
+  TEST_DATABASE_URL="postgresql://...branch.../neondb?sslmode=require" npm run test:pg
+  ```
+
+  Không đặt `TEST_DATABASE_URL` thì bộ test chạy trên SQLite tạm và vẫn phủ hết mọi thứ còn lại.
+- Dọn dữ liệu mẫu và dấu vết test còn sót: `npm run don-test` để xem trước, `npm run don-test -- --xoa-that` để xóa thật.

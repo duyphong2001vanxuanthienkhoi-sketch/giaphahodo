@@ -14,7 +14,8 @@
     "test": "node --test tests/*.test.js",
     "backup": "node scripts/backup.js",
     "import": "node scripts/import.js",
-    "test:pg": "node --test --test-concurrency=1 tests/*.test.js"
+    "test:pg": "node --test --test-concurrency=1 tests/*.test.js",
+    "don-test": "node scripts/don-du-lieu-test.js"
   },
   "dependencies": {
     "@dqcai/vn-lunar": "1.0.1",

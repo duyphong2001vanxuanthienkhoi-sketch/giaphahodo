@@ -12,7 +12,12 @@ const additions = [
   ['ancestors', 'deleted_at', 'INTEGER', 'BIGINT'],   // epoch millis: 32-bit is not enough on Postgres
   ['ancestors', 'revision', 'INTEGER NOT NULL DEFAULT 1'],
   ['photos', 'caption', "TEXT NOT NULL DEFAULT ''"],
-  ['photos', 'url', "TEXT NOT NULL DEFAULT ''"],   // Blob address; empty when stored on disk
+  ['photos', 'url', "TEXT NOT NULL DEFAULT ''"],
+  ['ancestors', 'living', 'INTEGER NOT NULL DEFAULT 0'],
+  ['ancestors', 'birth_date', "TEXT NOT NULL DEFAULT ''"],
+  ['ancestors', 'phone', "TEXT NOT NULL DEFAULT ''"],
+  ['users', 'password_hash', "TEXT NOT NULL DEFAULT ''"],
+  ['users', 'approved', 'INTEGER NOT NULL DEFAULT 1'],   // tài khoản tự đăng ký chờ duyệt   // Blob address; empty when stored on disk
   ['families', 'observances', `TEXT NOT NULL DEFAULT '${JSON.stringify(DEFAULT_OBSERVANCES)}'`],
 ];
 
@@ -88,9 +93,9 @@ function postgresDriver(url, schema) {
   // otherwise stick and point this app at a schema that may not even exist.
   pool.on('connect', client => client.query(`SET search_path TO ${schema || 'public'}`));
   // An idle connection dropped by the pooler emits 'error' on the pool. With no listener
-  // Node treats it as unhandled and kills the process, so a long-running Cội would die
+  // Node treats it as unhandled and kills the process, so a long-running Đỗ Gia would die
   // of a connection it was not even using. Log it and let the pool open another.
-  pool.on('error', error => console.error('[Cội] Kết nối Postgres nhàn rỗi bị lỗi:', error.message));
+  pool.on('error', error => console.error('[Đỗ Gia] Kết nối Postgres nhàn rỗi bị lỗi:', error.message));
   const run = async (executor, sql, params) => executor.query(toPgSql(sql), params);
   const wrap = executor => ({
     dialect: 'postgres',
@@ -159,7 +164,11 @@ export async function migrate(db) {
     if (!(await db.hasTable(table))) continue;
     if ((await db.columns(table)).includes(column)) continue;
     const type = db.dialect === 'postgres' && pgDefinition ? pgDefinition : definition;
-    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    // Kiểm-tra-rồi-thêm là một cuộc đua: hai tiến trình cùng khởi động sẽ cùng thấy
+    // cột chưa có rồi cùng thêm. Postgres có IF NOT EXISTS nên để chính nó phân xử;
+    // SQLite không có, nhưng ở đó chỉ một tiến trình giữ tệp nên không xảy ra đua.
+    const guard = db.dialect === 'postgres' ? 'IF NOT EXISTS ' : '';
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${guard}${column} ${type}`);
   }
 }
 
