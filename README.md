@@ -18,7 +18,7 @@ Cội là một web app cho dòng họ: lưu ngày giỗ theo âm lịch Việt 
 - Ngày lệ của dòng họ: Tết, rằm tháng Giêng, Giỗ Tổ, Vu Lan, Trung thu, ông Công ông Táo, mùng 1 và rằm hằng tháng — bật tắt theo nếp từng nhà.
 - **Khách xem được phần tưởng nhớ** mà không cần đăng nhập: gia phả, lịch ngày giỗ, ảnh, ký ức đã duyệt. Đặt `PUBLIC_VIEW=false` để đóng lại như cũ.
 - **Người còn sống thì không công khai**: email, số điện thoại, danh sách thành viên, điểm danh, lời mời và cài đặt nhắc luôn phải đăng nhập, kể cả khi đang mở cho khách.
-- Hai đường đăng nhập: **mật khẩu quản lý** (`ADMIN_PASSWORD`, không cần email) và **mã OTP** gửi qua email. Lần đăng nhập đầu bằng mật khẩu dựng luôn dòng họ, nên dựng được hệ thống mà chưa cần cấu hình mail.
+- Hai đường đăng nhập: **email + mật khẩu quản lý** (`ADMIN_EMAIL` + `ADMIN_PASSWORD`, không cần tới hộp thư) và **mã OTP** gửi qua email. Lần đăng nhập đầu bằng mật khẩu dựng luôn dòng họ, nên dựng được hệ thống mà chưa cần cấu hình mail.
 - Quản lý mời thành viên bằng link, đổi quyền hoặc thu hồi truy cập.
 - Lời nhắc cá nhân theo email: đúng ngày, trước 1, 3, 7, 14 hoặc 30 ngày, theo giờ Việt Nam. Gửi qua **Brevo** (HTTPS, hợp serverless) hoặc **SMTP**.
 - **Lịch đăng ký cho điện thoại**: link `webcal://` riêng cho từng người, kèm báo thức `VALARM` đúng theo cài đặt nhắc. Xem mục bên dưới.
@@ -72,7 +72,7 @@ NODE_ENV=production
 APP_URL=https://ten-mien-cua-ban.example
 APP_SECRET=chuoi-ngau-nhien-it-nhat-32-ky-tu
 ADMIN_EMAIL=email-khoi-tao-dong-ho@example.com
-ADMIN_PASSWORD=mat-khau-quan-ly-it-nhat-12-ky-tu
+ADMIN_PASSWORD=mat-khau-quan-ly-it-nhat-8-ky-tu
 MAIL_DRIVER=brevo
 BREVO_API_KEY=...
 BREVO_TU_EMAIL=dia-chi-da-xac-minh@example.com

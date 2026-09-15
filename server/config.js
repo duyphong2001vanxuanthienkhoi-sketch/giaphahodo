@@ -45,7 +45,7 @@ export function getConfig(overrides = {}) {
     const canMail = config.mailDriver === 'smtp' || config.mailDriver === 'brevo';
     if (!config.adminPassword && !canMail) throw new Error('Cần ADMIN_PASSWORD, hoặc MAIL_DRIVER=smtp/brevo để gửi mã đăng nhập.');
     if (config.mailDriver === 'brevo' && (!config.brevoKey || !config.brevoFrom)) throw new Error('MAIL_DRIVER=brevo cần cả BREVO_API_KEY và BREVO_TU_EMAIL (địa chỉ gửi đã xác minh trong Brevo).');
-    if (config.adminPassword && config.adminPassword.length < 12) throw new Error('ADMIN_PASSWORD phải có ít nhất 12 ký tự.');
+    if (config.adminPassword && config.adminPassword.length < 8) throw new Error('ADMIN_PASSWORD phải có ít nhất 8 ký tự.');
     if (!config.adminEmail) throw new Error('Cần khai báo ADMIN_EMAIL trước khi mở hệ thống.');
   }
   return config;

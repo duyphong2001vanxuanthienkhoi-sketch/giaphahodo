@@ -153,16 +153,19 @@ export async function createApp(config, options = {}) {
     const user=await seedDemo(db,role); await session(res,user);res.json({user:cleanUser(user)});
   });
   app.post('/api/auth/password', async (req,res) => {
-    const {password} = parse(z.object({password:z.string().min(1).max(200)}).strict(),req.body);
+    const {email,password} = parse(z.object({email:emailSchema,password:z.string().min(1).max(200)}).strict(),req.body);
     await limit(db,'password-ip:'+hash(req.ip),10,15*60000);
-    if(!config.adminPassword||!sameHash(hash(password),hash(config.adminPassword)))throw new AppError(401,'Mật khẩu chưa đúng.');
+    // So cả hai vế và chỉ trả một thông điệp, để không lộ email nào là đúng.
+    const emailOk = !!config.adminEmail && sameHash(hash(email),hash(config.adminEmail));
+    const passOk = !!config.adminPassword && sameHash(hash(password),hash(config.adminPassword));
+    if(!emailOk||!passOk)throw new AppError(401,'Email hoặc mật khẩu chưa đúng.');
     // Đăng nhập lần đầu cũng dựng luôn dòng họ, nên không cần email để khởi tạo.
     const user = await db.transaction(async tx => {
       let owner = await tx.get("SELECT * FROM users WHERE family_id!='demo-family' AND role='admin' AND active=1 ORDER BY created_at LIMIT 1");
       if (owner) return owner;
       const familyId=randomUUID(), userId=randomUUID();
       await tx.run('INSERT INTO families(id,name) VALUES(?,?)', familyId, config.familyName);
-      await tx.run("INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,'admin')", userId, familyId, config.adminEmail||'admin@local', 'Người quản lý');
+      await tx.run("INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,'admin')", userId, familyId, config.adminEmail, 'Người quản lý');
       return tx.get('SELECT * FROM users WHERE id=?', userId);
     });
     await session(res,user);res.json({user:cleanUser(user)});

@@ -348,12 +348,21 @@ test('Khách xem được phần tưởng nhớ, nhưng không thấy gì về n
   assert.equal((await kin.request('/photos/'+kept.data.id)).status,401,'tắt công khai thì ảnh cũng phải đăng nhập');
 });
 
-test('Quản lý đăng nhập bằng mật khẩu, không cần email', async t => {
-  const f = await fixture(t,{adminPassword:'mat-khau-quan-ly-du-dai'});
-  assert.equal((await f.request('/auth/password',{method:'POST',body:{password:'sai-be-bet'}})).status,401);
-  const ok = await f.request('/auth/password',{method:'POST',body:{password:'mat-khau-quan-ly-du-dai'}});
+test('Quản lý đăng nhập bằng email và mật khẩu, không cần tới hộp thư', async t => {
+  const f = await fixture(t,{adminPassword:'phong2001',adminEmail:'quanly@example.test'});
+  const login = body => f.request('/auth/password',{method:'POST',body});
+
+  assert.equal((await login({email:'quanly@example.test',password:'sai-be-bet'})).status,401);
+  assert.equal((await login({email:'nguoi-la@example.test',password:'phong2001'})).status,401);
+  // Sai email và sai mật khẩu phải trả cùng một thông điệp, để không lộ email nào là đúng.
+  const saiEmail = await login({email:'nguoi-la@example.test',password:'phong2001'});
+  const saiPass = await login({email:'quanly@example.test',password:'sai-be-bet'});
+  assert.equal(saiEmail.data.error,saiPass.data.error);
+
+  const ok = await login({email:'quanly@example.test',password:'phong2001'});
   assert.equal(ok.status,200);
   assert.equal(ok.data.user.role,'admin');
+  assert.equal(ok.data.user.email,'quanly@example.test');
 
   // Lần đăng nhập đầu tiên dựng luôn dòng họ, nên không cần SMTP để khởi tạo.
   const boot = await f.request('/bootstrap',{cookie:ok.cookie});
@@ -361,11 +370,11 @@ test('Quản lý đăng nhập bằng mật khẩu, không cần email', async t
   assert.equal(boot.data.family.name,'Dòng họ Đỗ');
   assert.notEqual(boot.data.user.family_id,'demo-family');
 
-  const again = await f.request('/auth/password',{method:'POST',body:{password:'mat-khau-quan-ly-du-dai'}});
+  const again = await login({email:'quanly@example.test',password:'phong2001'});
   assert.equal((await f.request('/bootstrap',{cookie:again.cookie})).data.family.id,boot.data.family.id,'không được tạo thêm dòng họ mới mỗi lần đăng nhập');
 
   const off = await fixture(t);
-  assert.equal((await off.request('/auth/password',{method:'POST',body:{password:'bat-ky-thu-gi'}})).status,401,'không khai ADMIN_PASSWORD thì đường này đóng');
+  assert.equal((await off.request('/auth/password',{method:'POST',body:{email:'admin@example.test',password:'bat-ky-thu-gi'}})).status,401,'không khai ADMIN_PASSWORD thì đường này đóng');
 });
 
 test('Gửi mail qua Brevo: đúng địa chỉ API, đúng khóa, và lỗi thì báo ra', async () => {
