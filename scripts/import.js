@@ -40,11 +40,10 @@ try {
 
   const existing = db.prepare('SELECT id,name FROM ancestors WHERE family_id=?').all(family.id);
   const byName = new Map(existing.map(a => [a.name, a.id]));
-  let added = 0, skipped = 0;
-  const pendingParents = [];
+  let added = 0, skipped = 0, linked = 0;
 
   for (const entry of roster.people) {
-    if (byName.has(entry.name)) { console.log(`• Bỏ qua ${entry.name} — đã có trong Cội.`); skipped++; continue; }
+    if (byName.has(entry.name)) { console.log(`• Đã có ${entry.name}, giữ nguyên.`); skipped++; continue; }
     const { parent, ...fields } = entry;
     const person = parse(ancestorSchema, { ...fields, parent_id: null });
     const id = randomUUID();
@@ -52,18 +51,30 @@ try {
     db.prepare(`INSERT INTO ancestors(id,family_id,created_by,${columns.join(',')}) VALUES(${Array(columns.length + 3).fill('?').join(',')})`)
       .run(id, family.id, owner.id, ...Object.values(person));
     byName.set(entry.name, id);
-    if (parent) pendingParents.push([id, parent, entry.name]);
     console.log(`• Đã thêm ${entry.name} — giỗ ${pad(entry.lunar_day)}/${pad(entry.lunar_month)} âm lịch.`);
     added++;
   }
-  // Links are resolved last so a parent may appear anywhere in the file.
-  for (const [id, parentName, childName] of pendingParents) {
-    const parentId = byName.get(parentName);
-    if (!parentId) { console.warn(`  ! Không tìm thấy "${parentName}" để liên kết cho ${childName}.`); continue; }
-    db.prepare('UPDATE ancestors SET parent_id=? WHERE id=?').run(parentId, id);
+
+  // Links are resolved after every insert so a parent may sit anywhere in the file,
+  // and they are reconciled for people already in Cội, not only the new ones.
+  for (const entry of roster.people) {
+    if (!entry.parent) continue;
+    const childId = byName.get(entry.name), parentId = byName.get(entry.parent);
+    if (!parentId) { console.warn(`  ! Không tìm thấy "${entry.parent}" để nối cho ${entry.name}.`); continue; }
+    if (childId === parentId) { console.warn(`  ! ${entry.name} không thể là cha/mẹ của chính mình.`); continue; }
+    const child = db.prepare('SELECT generation,parent_id FROM ancestors WHERE id=?').get(childId);
+    const elder = db.prepare('SELECT generation FROM ancestors WHERE id=?').get(parentId);
+    if (elder.generation >= child.generation) {
+      console.warn(`  ! Bỏ qua nối ${entry.name} → ${entry.parent}: người thế hệ trước phải có số đời nhỏ hơn.`);
+      continue;
+    }
+    if (child.parent_id === parentId) continue;
+    db.prepare('UPDATE ancestors SET parent_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(parentId, childId);
+    console.log(`• Nối ${entry.name} → ${entry.parent}.`);
+    linked++;
   }
 
-  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn. Dòng họ: ${family.name}.`);
+  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${linked} liên kết được cập nhật. Dòng họ: ${family.name}.`);
   const people = db.prepare('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL').all(family.id);
   const today = todayInVietnam();
   console.log('\nNgày giỗ gần nhất của từng người:');
