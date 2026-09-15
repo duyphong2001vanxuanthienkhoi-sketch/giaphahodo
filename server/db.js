@@ -17,7 +17,11 @@ const additions = [
   ['ancestors', 'birth_date', "TEXT NOT NULL DEFAULT ''"],
   ['ancestors', 'phone', "TEXT NOT NULL DEFAULT ''"],
   ['users', 'password_hash', "TEXT NOT NULL DEFAULT ''"],
-  ['users', 'approved', 'INTEGER NOT NULL DEFAULT 1'],   // tài khoản tự đăng ký chờ duyệt   // Blob address; empty when stored on disk
+  ['users', 'approved', 'INTEGER NOT NULL DEFAULT 1'],   // tài khoản tự đăng ký chờ duyệt
+  // Thứ tự sinh trong nhà: con cả là 1. Gia phả xếp anh chị em theo thứ tự này chứ
+  // không theo bảng chữ cái, và nhiều người trong họ chỉ biết năm sinh chứ không biết
+  // ngày, nên không thể xếp bằng ngày sinh. 0 nghĩa là chưa biết, xếp xuống cuối.
+  ['ancestors', 'birth_order', 'INTEGER NOT NULL DEFAULT 0'],
   ['families', 'observances', `TEXT NOT NULL DEFAULT '${JSON.stringify(DEFAULT_OBSERVANCES)}'`],
 ];
 

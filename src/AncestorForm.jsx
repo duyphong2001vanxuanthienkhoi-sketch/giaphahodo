@@ -5,10 +5,10 @@ import { api } from './api.js';
 import { preparePortrait } from './image.js';
 import { occurrences, todayInVietnam, addDays, solarLabel, lunarDate, pad } from '../shared/lunar.js';
 
-const FIELDS = ['name','generation','branch','birth_year','death_year','parent_id','spouse_id','lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note','living','birth_date','phone'];
+const FIELDS = ['name','generation','branch','birth_year','death_year','parent_id','spouse_id','lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note','living','birth_date','phone','birth_order'];
 
 export default function AncestorForm({ancestor,ancestors,onClose,onSaved}) {
-  const [form,setForm]=useState(ancestor?Object.fromEntries(FIELDS.map(k=>[k,ancestor[k]])):{name:'',generation:3,branch:'Chi trưởng',birth_year:null,death_year:null,parent_id:null,spouse_id:null,lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',living:false,birth_date:'',phone:''});
+  const [form,setForm]=useState(ancestor?Object.fromEntries(FIELDS.map(k=>[k,ancestor[k]])):{name:'',generation:3,branch:'Chi trưởng',birth_year:null,death_year:null,parent_id:null,spouse_id:null,lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',living:false,birth_date:'',phone:'',birth_order:0});
   const [tab,setTab]=useState('basic'),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [solar,setSolar]=useState(''),[converted,setConverted]=useState(null);
   const [photo,setPhoto]=useState(null),[dropPhoto,setDropPhoto]=useState(false),[photoBusy,setPhotoBusy]=useState(false);
@@ -59,6 +59,7 @@ export default function AncestorForm({ancestor,ancestors,onClose,onSaved}) {
       <label className="switch-row full"><div><strong>Người này còn sống</strong><p>{living?'Sẽ nằm ở mục Người còn sống và hiện sinh nhật trên lịch. Không có ngày giỗ.':'Sẽ nằm ở gia phả tưởng nhớ, có ngày giỗ theo âm lịch.'}</p></div><input type="checkbox" className="switch" checked={living} onChange={e=>set('living',e.target.checked)}/></label>
       <Field label="Tên người thân *" wide><input required maxLength={120} placeholder={living?'Ví dụ: Đỗ Văn Minh':'Ví dụ: Cụ Đỗ Văn Sáo'} value={form.name} onChange={e=>set('name',e.target.value)}/></Field>
       <Field label="Đời thứ *"><input type="number" min="1" max="30" required value={form.generation} onChange={e=>set('generation',Number(e.target.value))}/></Field>
+      <Field label="Con thứ mấy trong nhà" hint="Con cả ghi 1. Bỏ trống thì xếp xuống cuối sơ đồ gia phả."><input type="number" min="0" max="30" placeholder="Chưa rõ" value={form.birth_order||''} onChange={e=>set('birth_order',e.target.value?Number(e.target.value):0)}/></Field>
       <Field label="Chi / nhánh *"><input maxLength={80} required value={form.branch} onChange={e=>set('branch',e.target.value)}/></Field>
       <Field label="Năm sinh"><input type="number" min="1000" max="2199" placeholder="Không bắt buộc" value={form.birth_year??''} onChange={e=>set('birth_year',e.target.value?Number(e.target.value):null)}/></Field>
       {!living&&<Field label="Năm mất"><input type="number" min="1000" max="2199" placeholder="Không bắt buộc" value={form.death_year??''} onChange={e=>set('death_year',e.target.value?Number(e.target.value):null)}/></Field>}

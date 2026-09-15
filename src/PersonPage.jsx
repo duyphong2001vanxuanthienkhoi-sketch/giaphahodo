@@ -57,7 +57,7 @@ export default function PersonPage({ person, events, data, admin, guest = false,
           : <span className="portrait-empty"><Avatar name={person.name} size="large"/></span>}
       </div>
       <div className="person-headline">
-        <p className="eyebrow">Đời thứ {person.generation} · {person.branch}</p>
+        <p className="eyebrow">Đời thứ {person.generation}{person.branch&&person.branch!=='Chưa phân chi'?' · '+person.branch:''}</p>
         <h1>{person.name}</h1>
         <p className="life-years">{person.birth_year||'…'} — {person.death_year||'…'}</p>
         <p className="inline-meta"><CalendarDays/>Giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm lịch{person.leap_policy==='both'?' · cả tháng nhuận':''}</p>

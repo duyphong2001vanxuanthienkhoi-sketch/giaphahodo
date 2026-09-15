@@ -19,11 +19,19 @@ if (!Array.isArray(roster.people) || !roster.people.length) {
 // actually known about that person. A living relative has no memorial date at all, so
 // the placeholder below is never read: occurrences() skips anyone marked living.
 const base = {
-  branch: 'Chưa phân chi', birth_year: null, death_year: null,
+  branch: 'Chưa phân chi', birth_year: null, death_year: null, birth_order: 0,
   lunar_day: 1, lunar_month: 1, leap_policy: 'regular', short_month_policy: 'last-day',
   location: '', biography: '', note: '', living: false, birth_date: '', phone: '',
   ...(roster.defaults || {}),
 };
+
+// Người đã có trong Đỗ Gia thì giữ nguyên, trừ những ô còn trống: hỏi được ngày sinh
+// của một người rồi thêm vào file thì lần chạy sau phải điền được vào, chứ không thể
+// bắt xóa người đi rồi nạp lại. Ghi đè lên ô đã có chữ thì phải nói rõ bằng --cap-nhat,
+// để một lần chạy lại không lặng lẽ xóa mất thứ ai đó vừa sửa trong ứng dụng.
+const OVERWRITE = process.argv.includes('--cap-nhat');
+const FILLABLE = ['birth_order', 'birth_year', 'birth_date', 'phone', 'note', 'location', 'biography'];
+const blank = value => value === null || value === undefined || value === '' || value === 0;
 
 const db = await openDatabase(config.databaseUrl || config.dbPath);
 try {
@@ -50,7 +58,26 @@ try {
 
   const existing = await db.all('SELECT id,name FROM ancestors WHERE family_id=?', family.id);
   const byName = new Map(existing.map(a => [a.name, a.id]));
-  let added = 0, skipped = 0, renamed = 0, linked = 0, married = 0;
+  let added = 0, skipped = 0, renamed = 0, linked = 0, married = 0, filled = 0;
+
+  /** Điền vào những ô còn trống của một người đã có; trả về true nếu có sửa gì. */
+  async function refresh(entry) {
+    const id = byName.get(entry.name);
+    const current = await db.get('SELECT * FROM ancestors WHERE id=?', id);
+    const changes = {};
+    for (const field of FILLABLE) {
+      if (!(field in entry) || blank(entry[field]) || current[field] === entry[field]) continue;
+      if (!blank(current[field]) && !OVERWRITE) continue;
+      changes[field] = entry[field];
+    }
+    const fields = Object.keys(changes);
+    if (!fields.length) { console.log(`• Đã có ${entry.name}, giữ nguyên.`); return false; }
+    await db.run(`UPDATE ancestors SET ${fields.map(f => f + '=?').join(',')},revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      ...Object.values(changes), id);
+    console.log(`• ${entry.name}: điền ${fields.join(', ')}.`);
+    filled++;
+    return true;
+  }
 
   // A person already in the family under an older spelling — "Bác Đỗ Văn Lương" before the
   // gia phả settled on plain names — must be renamed, not inserted again, or the file
@@ -66,7 +93,7 @@ try {
   }
 
   for (const entry of roster.people) {
-    if (byName.has(entry.name)) { console.log(`• Đã có ${entry.name}, giữ nguyên.`); skipped++; continue; }
+    if (byName.has(entry.name)) { if (!(await refresh(entry))) skipped++; continue; }
     const { parent, spouse, was, ...fields } = entry;
     const person = parse(ancestorSchema, { ...base, ...fields, parent_id: null, spouse_id: null });
     const id = randomUUID();
@@ -114,7 +141,8 @@ try {
     married++;
   }
 
-  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${renamed} người được đổi tên, ${linked} liên kết cha/mẹ, ${married} liên kết vợ/chồng. Dòng họ: ${family.name}.`);
+  console.log(`\n${added} người được thêm, ${filled} người được điền thêm thông tin, ${skipped} người giữ nguyên, ${renamed} người được đổi tên, ${linked} liên kết cha/mẹ, ${married} liên kết vợ/chồng. Dòng họ: ${family.name}.`);
+  if (!OVERWRITE) console.log('Chỉ những ô đang trống mới được điền. Muốn ghi đè cả những ô đã có chữ thì chạy: npm run import -- --cap-nhat');
 
   const people = await db.all('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL', family.id);
   const today = todayInVietnam(), horizon = addDays(today, 400);
@@ -141,7 +169,7 @@ try {
     console.log(`  ${label(person)} ${when}`);
   }
   const waiting = alive.filter(p => !p.birth_date).length;
-  if (waiting) console.log(`\nCòn ${waiting} người chưa có ngày sinh đầy đủ. Hỏi được ngày nào thì thêm vào scripts/gia-pha.json rồi chạy lại: npm run import`);
+  if (waiting) console.log(`\nCòn ${waiting} người chưa có ngày sinh đầy đủ. Hỏi được ngày nào thì thêm vào scripts/gia-pha.json rồi chạy lại "npm run import" — ô đang trống sẽ được điền vào.`);
 } finally {
   await db.close();
 }

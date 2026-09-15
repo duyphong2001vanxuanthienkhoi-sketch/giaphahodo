@@ -18,6 +18,7 @@ export const ancestorSchema = z.object({
   location: text(300), biography: text(5000), note: text(2000),
   // Cả SQLite lẫn Postgres đều không nhận boolean cho cột INTEGER, nên ép ngay tại đây.
   living: z.boolean().transform(v => v ? 1 : 0), birth_date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Ngày sinh phải có dạng YYYY-MM-DD.'), phone: text(25),
+  birth_order: z.number().int().min(0).max(30),   // con cả là 1; 0 là chưa biết
 }).strict().refine(v => !v.birth_year || !v.death_year || v.birth_year <= v.death_year, {message:'Năm mất phải sau hoặc bằng năm sinh.'});
 export const preferenceSchema = z.object({
   enabled: z.boolean(), days: z.array(z.number().int().refine(d=>REMINDER_DAYS.includes(d),{message:'Mốc nhắc không hợp lệ.'})).max(REMINDER_DAYS.length),

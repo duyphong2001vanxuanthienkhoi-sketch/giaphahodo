@@ -41,17 +41,26 @@ export async function createApp(config, options = {}) {
     }
     next();
   });
+  const SESSION_DAYS = 30, SESSION_MS = SESSION_DAYS * 86400000;
   async function auth(req,res,next) {
     const raw = readCookie(req,'coi_session');
-    const user = raw ? await db.get('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.active=1 AND u.approved=1', hash(raw),Date.now()) : null;
-    if (!user) return next(new AppError(401,'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.'));
+    const row = raw ? await db.get('SELECT u.*, s.expires_at AS session_expires FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.active=1 AND u.approved=1', hash(raw),Date.now()) : null;
+    if (!row) return next(new AppError(401,'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.'));
+    // Phiên trượt theo người dùng: ai còn mở ứng dụng thì không bao giờ phải đăng nhập
+    // lại, ai bỏ quên máy thì phiên vẫn tự hết sau 30 ngày. Chỉ ghi lại khi phiên đã đi
+    // được hơn một ngày, để mỗi lần mở trang không thành một lượt ghi vào cơ sở dữ liệu.
+    const { session_expires: expires, ...user } = row;
+    if (expires - Date.now() < (SESSION_DAYS - 1) * 86400000) {
+      await db.run('UPDATE sessions SET expires_at=? WHERE token_hash=?', Date.now() + SESSION_MS, hash(raw));
+      res.cookie('coi_session',raw,{httpOnly:true,secure:config.production,sameSite:'lax',maxAge:SESSION_MS,path:'/'});
+    }
     req.user = user; next();
   }
   function admin(req,res,next) { if(req.user.role !== 'admin') return next(new AppError(403,'Chỉ người quản lý được thực hiện thao tác này.')); next(); }
   async function session(res,user) {
     const raw = token();
-    await db.run('INSERT INTO sessions VALUES(?,?,?)', hash(raw),user.id,Date.now()+30*86400000);
-    res.cookie('coi_session',raw,{httpOnly:true,secure:config.production,sameSite:'lax',maxAge:30*86400000,path:'/'});
+    await db.run('INSERT INTO sessions VALUES(?,?,?)', hash(raw),user.id,Date.now()+SESSION_MS);
+    res.cookie('coi_session',raw,{httpOnly:true,secure:config.production,sameSite:'lax',maxAge:SESSION_MS,path:'/'});
     return user;
   }
   const getInvite = async raw => typeof raw === 'string' && /^[a-f0-9]{64}$/.test(raw) ? await db.get('SELECT * FROM invitations WHERE token_hash=? AND expires_at>? AND used_at IS NULL AND revoked_at IS NULL', hash(raw),Date.now()) : null;
@@ -67,7 +76,7 @@ export async function createApp(config, options = {}) {
   const publicAncestors = async familyId => await db.all(
     `SELECT id,name,generation,branch,birth_year,death_year,parent_id,spouse_id,
             lunar_day,lunar_month,leap_policy,short_month_policy,
-            location,biography,note,photo_id,revision,updated_at,living
+            location,biography,note,photo_id,revision,updated_at,living,birth_order
        FROM ancestors WHERE family_id=? AND deleted_at IS NULL AND living=0
       ORDER BY generation,name`, familyId);
   const familyObservances = family => {

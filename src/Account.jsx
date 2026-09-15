@@ -87,7 +87,7 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
             <h3><Trash2/>Thùng rác</h3>
             {data.trash.length===0?<p className="muted">Thùng rác đang trống. Người thân bị xóa sẽ nằm ở đây cho tới khi bạn xóa hẳn.</p>
               :data.trash.map(person=><div className="trash-row" key={person.id}>
-                <div><strong>{person.name}</strong><span>Đời thứ {person.generation} · {person.branch} · giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm</span><small>Đã xóa {new Date(person.deleted_at).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</small></div>
+                <div><strong>{person.name}</strong><span>Đời thứ {person.generation}{person.branch&&person.branch!=='Chưa phân chi'?' · '+person.branch:''} · giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm</span><small>Đã xóa {new Date(person.deleted_at).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</small></div>
                 <div className="trash-actions">
                   <Button variant="text" disabled={busy} onClick={()=>setConfirm({title:'Khôi phục người thân?',description:`${person.name} sẽ trở lại gia phả, lịch ngày giỗ và miền ký ức như cũ.`,path:`/ancestors/${person.id}/restore`,method:'POST',label:'Khôi phục',done:'Đã khôi phục người thân.'})}><RotateCcw/>Khôi phục</Button>
                   <Button variant="text" className="danger" disabled={busy} onClick={()=>setConfirm({title:'Xóa hẳn khỏi Đỗ Gia?',description:`Toàn bộ thông tin, ảnh và ký ức về ${person.name} sẽ mất vĩnh viễn. Không thể hoàn tác.`,path:'/trash/'+person.id,method:'DELETE',label:'Xóa vĩnh viễn',done:'Đã xóa hẳn bản ghi.',danger:true})}><Trash2/>Xóa hẳn</Button>

@@ -274,7 +274,7 @@ test('Vợ chồng nối hai chiều, đổi bạn đời thì giải phóng li�
     body:{name:target.name,generation:target.generation,branch:target.branch,birth_year:target.birth_year,death_year:target.death_year,
       parent_id:target.parent_id,spouse_id:null,lunar_day:target.lunar_day,lunar_month:target.lunar_month,leap_policy:target.leap_policy,
       short_month_policy:target.short_month_policy,location:target.location,biography:target.biography,note:target.note,
-      living:!!target.living,birth_date:target.birth_date||'',phone:target.phone||'',...changes}});
+      living:!!target.living,birth_date:target.birth_date||'',phone:target.phone||'',birth_order:target.birth_order||0,...changes}});
   const spouseOf = async id => (await f.request('/bootstrap',{cookie:admin})).data.ancestors.find(a=>a.id===id).spouse_id;
 
   assert.equal((await edit(ong,{spouse_id:ong.id})).status,400,'không thể là vợ/chồng của chính mình');
@@ -301,7 +301,7 @@ test('Vợ chồng nối hai chiều, đổi bạn đời thì giải phóng li�
   const outsider = (await f.request('/auth/verify',{method:'POST',body:{challengeId:challenge.data.challengeId,code}})).cookie;
   const stranger = await f.request('/ancestors',{method:'POST',cookie:outsider,body:{
     name:'Cụ Nhà Khác',generation:1,branch:'Chi khác',birth_year:null,death_year:null,parent_id:null,spouse_id:null,
-    lunar_day:5,lunar_month:5,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',living:false,birth_date:'',phone:''}});
+    lunar_day:5,lunar_month:5,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',living:false,birth_date:'',phone:'',birth_order:0}});
   assert.equal(stranger.status,201);
   assert.equal((await edit(ong,{spouse_id:stranger.data.id})).status,404,'không nối được với người ngoài dòng họ');
 });
@@ -341,7 +341,7 @@ test('Khách xem được phần tưởng nhớ, nhưng không thấy gì về n
   // thêm vào ancestors sau này phải được khai báo ở đây mới công khai, nếu không thì
   // ở lại bên trong. phone và birth_date là của người sống, không bao giờ ra tới đây.
   const allowed = new Set(['id','name','generation','branch','birth_year','death_year','parent_id','spouse_id',
-    'lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note','photo_id','revision','updated_at','living']);
+    'lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note','photo_id','revision','updated_at','living','birth_order']);
   for (const person of guest.data.ancestors) {
     assert.ok(!person.living,'người còn sống không được lọt vào bản công khai');
     const extra = Object.keys(person).filter(key => !allowed.has(key));
@@ -453,7 +453,7 @@ test('Người còn sống: không có ngày giỗ, không lộ ra ngoài, có s
   const f = await fixture(t), admin = await f.loginDemo();
   const alive = {name:'Đỗ Văn Minh',generation:5,branch:'Chi trưởng',birth_year:null,death_year:null,parent_id:null,spouse_id:null,
     lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',
-    living:true,birth_date:'1990-03-15',phone:'0900111222'};
+    living:true,birth_date:'1990-03-15',phone:'0900111222',birth_order:2};
   assert.equal((await f.request('/ancestors',{method:'POST',cookie:admin,body:alive})).status,201);
 
   const boot = (await f.request('/bootstrap',{cookie:admin})).data;
@@ -468,6 +468,7 @@ test('Người còn sống: không có ngày giỗ, không lộ ra ngoài, có s
 
   // Không sinh ngày giỗ, nhưng có sinh nhật trong feed.
   assert.equal(occurrences([{...saved}],'2026-01-01','2026-12-31').length,0,'người còn sống không có ngày giỗ');
+  assert.equal(saved.birth_order,2,'thứ tự sinh phải được lưu để sơ đồ gia phả xếp đúng anh chị em');
   const feed = (await f.request(new URL(boot.calendar.url).pathname.replace('/api',''))).data;
   assert.match(feed,/SUMMARY:Sinh nhật Đỗ Văn Minh/);
   assert.match(feed,/CATEGORIES:Sinh nhật/);

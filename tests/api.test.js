@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { createApp } from '../server/app.js';
 import { getConfig } from '../server/config.js';
 import { openDatabase } from '../server/db.js';
@@ -30,7 +30,7 @@ async function fixture(t,overrides={}) {
   const loginDemo=async(role='admin')=>(await request('/auth/demo',{method:'POST',body:{role}})).cookie;
   return {...context,config,schema,target,outbox,request,loginDemo};
 }
-const person={name:'Cụ Nguyễn Test',generation:2,branch:'Chi thử',birth_year:1910,death_year:1980,parent_id:null,spouse_id:null,lunar_day:15,lunar_month:8,leap_policy:'regular',short_month_policy:'last-day',location:'Nhà thờ họ',biography:'Ký ức được lưu lại.',note:'',living:false,birth_date:'',phone:''};
+const person={name:'Cụ Nguyễn Test',generation:2,branch:'Chi thử',birth_year:1910,death_year:1980,parent_id:null,spouse_id:null,lunar_day:15,lunar_month:8,leap_policy:'regular',short_month_policy:'last-day',location:'Nhà thờ họ',biography:'Ký ức được lưu lại.',note:'',living:false,birth_date:'',phone:'',birth_order:0};
 test('Chặn người chưa đăng nhập, thành viên không được sửa; quản lý CRUD và dữ liệu tồn tại sau khi mở lại DB',async t=>{
   const f=await fixture(t);
   assert.equal((await f.request('/bootstrap')).status,401);
@@ -99,4 +99,27 @@ test('Nhắc đúng giờ Việt Nam, không gửi lặp ở lần chạy tiếp
   assert.deepEqual(await runReminders({...f,now:new Date('2026-09-15T01:00:00Z')}),{sent:0,failed:0});
   await f.db.run('UPDATE reminder_preferences SET enabled=0 WHERE user_id=?', uid);
   assert.deepEqual(await runReminders({...f,now:new Date('2026-09-18T00:00:00Z')}),{sent:0,failed:0});
+});
+test('Phiên đăng nhập tự gia hạn khi còn dùng, nhưng vẫn hết hạn nếu bỏ lâu',async t=>{
+  const f=await fixture(t);
+  const cookie=await f.loginDemo();
+  const raw=cookie.split('=')[1];
+  const row=async()=>await f.db.get('SELECT expires_at FROM sessions WHERE token_hash=?', createHash('sha256').update(raw).digest('hex'));
+  const first=(await row()).expires_at;
+  assert.ok(first>Date.now()+29*86400000,'phiên mới phải kéo dài 30 ngày');
+
+  // Vừa đăng nhập xong thì không ghi lại gì, để mỗi lần mở trang không thành một lượt ghi.
+  assert.equal((await f.request('/bootstrap',{cookie})).status,200);
+  assert.equal((await row()).expires_at,first,'phiên còn mới thì không cần gia hạn');
+
+  // Lùi hạn về như thể đã dùng được mười ngày: lần vào tiếp theo phải đẩy hạn ra lại.
+  await f.db.run('UPDATE sessions SET expires_at=? WHERE token_hash=?', Date.now()+20*86400000, createHash('sha256').update(raw).digest('hex'));
+  const visit=await f.request('/bootstrap',{cookie});
+  assert.equal(visit.status,200);
+  assert.ok((await row()).expires_at>Date.now()+29*86400000,'người còn dùng thì phiên phải được kéo dài');
+  assert.match(visit.headers.get('set-cookie')||'',/Max-Age=2592000/,'phải gửi lại cookie với hạn mới');
+
+  // Hết hạn thật thì vẫn phải chặn, gia hạn không được phép cứu một phiên đã chết.
+  await f.db.run('UPDATE sessions SET expires_at=? WHERE token_hash=?', Date.now()-1000, createHash('sha256').update(raw).digest('hex'));
+  assert.equal((await f.request('/bootstrap',{cookie})).status,401);
 });
