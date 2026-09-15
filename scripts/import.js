@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getConfig } from '../server/config.js';
-import { openDatabase, transaction } from '../server/db.js';
+import { openDatabase } from '../server/db.js';
 import { parse, ancestorSchema } from '../server/validation.js';
-import { occurrences, todayInVietnam, addDays, solarLabel, pad } from '../shared/lunar.js';
+import { occurrences, birthdayEvents, todayInVietnam, addDays, solarLabel, pad } from '../shared/lunar.js';
 
 const config = getConfig();
 const file = resolve(process.argv[2] || './scripts/gia-pha.json');
@@ -14,6 +14,16 @@ if (!Array.isArray(roster.people) || !roster.people.length) {
   console.error(`Không tìm thấy danh sách "people" trong ${file}.`);
   process.exit(1);
 }
+
+// Every field the schema insists on, so an entry in the file only has to carry what is
+// actually known about that person. A living relative has no memorial date at all, so
+// the placeholder below is never read: occurrences() skips anyone marked living.
+const base = {
+  branch: 'Chưa phân chi', birth_year: null, death_year: null,
+  lunar_day: 1, lunar_month: 1, leap_policy: 'regular', short_month_policy: 'last-day',
+  location: '', biography: '', note: '', living: false, birth_date: '', phone: '',
+  ...(roster.defaults || {}),
+};
 
 const db = await openDatabase(config.databaseUrl || config.dbPath);
 try {
@@ -24,7 +34,7 @@ try {
   if (!family) {
     if (!config.adminEmail) {
       console.error('Chưa có dòng họ nào trong cơ sở dữ liệu. Hãy đặt ADMIN_EMAIL trong .env rồi chạy lại,');
-      console.error('hoặc đăng nhập một lần bằng email quản lý để Cội tạo dòng họ trước.');
+      console.error('hoặc đăng nhập một lần bằng email quản lý để Đỗ Gia tạo dòng họ trước.');
       process.exit(1);
     }
     const familyId = randomUUID(), userId = randomUUID();
@@ -40,23 +50,40 @@ try {
 
   const existing = await db.all('SELECT id,name FROM ancestors WHERE family_id=?', family.id);
   const byName = new Map(existing.map(a => [a.name, a.id]));
-  let added = 0, skipped = 0, linked = 0, married = 0;
+  let added = 0, skipped = 0, renamed = 0, linked = 0, married = 0;
+
+  // A person already in the family under an older spelling — "Bác Đỗ Văn Lương" before the
+  // gia phả settled on plain names — must be renamed, not inserted again, or the file
+  // would quietly double every one of them.
+  for (const entry of roster.people) {
+    if (!entry.was || byName.has(entry.name) || !byName.has(entry.was)) continue;
+    const id = byName.get(entry.was);
+    await db.run('UPDATE ancestors SET name=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?', entry.name, id);
+    byName.delete(entry.was);
+    byName.set(entry.name, id);
+    console.log(`• Đổi tên "${entry.was}" thành "${entry.name}".`);
+    renamed++;
+  }
 
   for (const entry of roster.people) {
     if (byName.has(entry.name)) { console.log(`• Đã có ${entry.name}, giữ nguyên.`); skipped++; continue; }
-    const { parent, spouse, ...fields } = entry;
-    const person = parse(ancestorSchema, { ...fields, parent_id: null, spouse_id: null });
+    const { parent, spouse, was, ...fields } = entry;
+    const person = parse(ancestorSchema, { ...base, ...fields, parent_id: null, spouse_id: null });
     const id = randomUUID();
     const columns = Object.keys(person);
     await db.run(`INSERT INTO ancestors(id,family_id,created_by,${columns.join(',')}) VALUES(${Array(columns.length + 3).fill('?').join(',')})`,
       id, family.id, owner.id, ...Object.values(person));
     byName.set(entry.name, id);
-    console.log(`• Đã thêm ${entry.name} — giỗ ${pad(entry.lunar_day)}/${pad(entry.lunar_month)} âm lịch.`);
+    const born = person.birth_date ? `, sinh ${solarLabel(person.birth_date)} dương lịch`
+      : person.birth_year ? `, sinh năm ${person.birth_year}` : '';
+    console.log(person.living
+      ? `• Đã thêm ${entry.name} — còn sống${born}.`
+      : `• Đã thêm ${entry.name} — giỗ ${pad(person.lunar_day)}/${pad(person.lunar_month)} âm lịch.`);
     added++;
   }
 
   // Links are resolved after every insert so a parent may sit anywhere in the file,
-  // and they are reconciled for people already in Cội, not only the new ones.
+  // and they are reconciled for people already in Đỗ Gia, not only the new ones.
   for (const entry of roster.people) {
     if (!entry.parent) continue;
     const childId = byName.get(entry.name), parentId = byName.get(entry.parent);
@@ -87,15 +114,34 @@ try {
     married++;
   }
 
-  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${linked} liên kết cha/mẹ, ${married} liên kết vợ/chồng. Dòng họ: ${family.name}.`);
+  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${renamed} người được đổi tên, ${linked} liên kết cha/mẹ, ${married} liên kết vợ/chồng. Dòng họ: ${family.name}.`);
+
   const people = await db.all('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL', family.id);
-  const today = todayInVietnam();
-  console.log('\nNgày giỗ gần nhất của từng người:');
-  for (const person of people) {
-    const next = occurrences([person], today, addDays(today, 400))[0];
-    const when = next ? `${solarLabel(next.date)}${next.shifted ? ' (lùi về ngày cuối tháng)' : ''} · còn ${next.daysAway} ngày` : 'không rơi vào 400 ngày tới';
-    console.log(`  ${person.name.padEnd(22)} ${pad(person.lunar_day)}/${pad(person.lunar_month)} âm  →  ${when}`);
+  const today = todayInVietnam(), horizon = addDays(today, 400);
+  const departed = people.filter(p => !p.living), alive = people.filter(p => p.living);
+  const label = person => person.name.padEnd(20);
+
+  console.log(`\nĐã mất — ${departed.length} người, ngày giỗ gần nhất:`);
+  for (const person of departed) {
+    const next = occurrences([person], today, horizon)[0];
+    const shifted = next?.shifted ? ' (lùi về ngày cuối tháng)' : '';
+    const when = next ? `${solarLabel(next.date)}${shifted} · còn ${next.daysAway} ngày` : 'không rơi vào 400 ngày tới';
+    console.log(`  ${label(person)} ${pad(person.lunar_day)}/${pad(person.lunar_month)} âm  →  ${when}`);
   }
+
+  // Birthdays are solar: a date in birth_date recurs on the same day of the Gregorian
+  // year, unlike a memorial date, which is lunar and moves against the solar calendar.
+  console.log(`\nCòn sống — ${alive.length} người:`);
+  const birthdays = birthdayEvents(alive, today, horizon);
+  for (const person of alive) {
+    const next = birthdays.find(b => b.id === person.id);
+    const when = next ? `sinh nhật ${solarLabel(next.date)} dương lịch · còn ${next.daysAway} ngày, tròn ${next.turning} tuổi`
+      : person.birth_year ? `sinh năm ${person.birth_year} — chưa có ngày sinh cụ thể, lịch chưa nhắc sinh nhật`
+      : 'chưa có ngày sinh';
+    console.log(`  ${label(person)} ${when}`);
+  }
+  const waiting = alive.filter(p => !p.birth_date).length;
+  if (waiting) console.log(`\nCòn ${waiting} người chưa có ngày sinh đầy đủ. Hỏi được ngày nào thì thêm vào scripts/gia-pha.json rồi chạy lại: npm run import`);
 } finally {
-  db.close();
+  await db.close();
 }
