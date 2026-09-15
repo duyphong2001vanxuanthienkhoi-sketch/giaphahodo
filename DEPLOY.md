@@ -27,7 +27,22 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 **Đừng commit.** Chỉ dán vào biến môi trường của nhà cung cấp.
 
-### 1.2 App Password của Gmail
+### 1.2 Gửi email — chọn Brevo hoặc Gmail
+
+**Brevo (khuyên dùng, nhất là trên Vercel).** Gọi qua HTTPS nên không đụng cổng SMTP, không cần App Password, và không bị chặn ở môi trường serverless. Miễn phí 300 thư/ngày, chỉ cần xác minh **một địa chỉ người gửi** chứ không cần sở hữu tên miền.
+
+1. `brevo.com` → đăng ký.
+2. **Senders & IP → Senders** → thêm email của bạn và bấm xác minh trong hộp thư.
+3. **Settings → SMTP & API → API Keys** → tạo khóa.
+
+```dotenv
+MAIL_DRIVER=brevo
+BREVO_API_KEY=<khóa vừa tạo>
+BREVO_TU_EMAIL=<email đã xác minh ở bước 2>
+BREVO_TU_TEN=Dòng họ Đỗ
+```
+
+**Gmail (cách còn lại).** Cần App Password — xem dưới.
 
 Không có SMTP thì **không ai đăng nhập được**, kể cả bạn — Cội đăng nhập bằng mã OTP gửi qua email.
 

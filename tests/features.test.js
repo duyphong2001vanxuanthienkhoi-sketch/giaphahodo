@@ -368,6 +368,30 @@ test('Quản lý đăng nhập bằng mật khẩu, không cần email', async t
   assert.equal((await off.request('/auth/password',{method:'POST',body:{password:'bat-ky-thu-gi'}})).status,401,'không khai ADMIN_PASSWORD thì đường này đóng');
 });
 
+test('Gửi mail qua Brevo: đúng địa chỉ API, đúng khóa, và lỗi thì báo ra', async () => {
+  const { createMailer } = await import('../server/mail.js');
+  const config = { mailDriver:'brevo', brevoKey:'khoa-brevo-gia-lap', brevoFrom:'nguoi-gui@example.test', brevoName:'Dòng họ Đỗ' };
+  const mailer = createMailer(config);
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => { calls.push({url, options}); return { ok:true, status:201, text:async()=>'' }; };
+  try {
+    await mailer.send({to:'nguoi-nhan@example.test',subject:'Mã đăng nhập Cội',text:'Mã của bạn là 123456.'});
+    assert.equal(calls.length,1);
+    assert.equal(calls[0].url,'https://api.brevo.com/v3/smtp/email');
+    assert.equal(calls[0].options.headers['api-key'],'khoa-brevo-gia-lap');
+    const body = JSON.parse(calls[0].options.body);
+    assert.equal(body.sender.email,'nguoi-gui@example.test');
+    assert.equal(body.to[0].email,'nguoi-nhan@example.test');
+    assert.equal(body.textContent,'Mã của bạn là 123456.');
+    assert.ok(!('htmlContent' in body),'thư đăng nhập gửi dạng chữ thuần, không kèm HTML');
+
+    // Brevo từ chối thì phải ném lỗi, để luồng OTP báo cho người dùng chứ không im lặng.
+    globalThis.fetch = async () => ({ ok:false, status:401, text:async()=>'{"message":"Key not found"}' });
+    await assert.rejects(() => mailer.send({to:'a@example.test',subject:'x',text:'y'}), /Brevo trả về 401/);
+  } finally { globalThis.fetch = realFetch; }
+});
+
 test('Quy đổi báo thức sang chuỗi thời lượng iCalendar', () => {
   assert.equal(alarmTrigger(7,7,0),'-P6DT17H');
   assert.equal(alarmTrigger(0,7,0),'PT7H');
