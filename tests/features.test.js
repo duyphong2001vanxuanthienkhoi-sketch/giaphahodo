@@ -337,6 +337,17 @@ test('Khách xem được phần tưởng nhớ, nhưng không thấy gì về n
   for (const leak of ['minhha@example.test','thuan@example.test','@example','members','attendance','invitations','calendar','preferences','author_id'])
     assert.ok(!dump.includes(leak),`bản công khai không được chứa "${leak}"`);
 
+  // Danh sách cột được phép ra ngoài, chứ không phải "lấy hết rồi bỏ bớt": một cột
+  // thêm vào ancestors sau này phải được khai báo ở đây mới công khai, nếu không thì
+  // ở lại bên trong. phone và birth_date là của người sống, không bao giờ ra tới đây.
+  const allowed = new Set(['id','name','generation','branch','birth_year','death_year','parent_id','spouse_id',
+    'lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note','photo_id','revision','updated_at','living']);
+  for (const person of guest.data.ancestors) {
+    assert.ok(!person.living,'người còn sống không được lọt vào bản công khai');
+    const extra = Object.keys(person).filter(key => !allowed.has(key));
+    assert.deepEqual(extra,[],`bản công khai lộ thêm cột: ${extra.join(', ')}`);
+  }
+
   assert.equal((await f.request('/bootstrap')).status,401,'khách vẫn không vào được dữ liệu thành viên');
   assert.equal((await f.request('/photos/'+photo.data.id)).status,200,'ảnh xem được khi đã mở công khai');
 

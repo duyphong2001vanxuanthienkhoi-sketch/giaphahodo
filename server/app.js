@@ -61,6 +61,15 @@ export async function createApp(config, options = {}) {
     return {...row,enabled:!!row.enabled,all_events:!!row.all_events,days:JSON.parse(row.days)};
   };
   const livingAncestors = async familyId => await db.all('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL ORDER BY generation,name', familyId);
+  // Ai có link cũng đọc được phần này, nên nó liệt kê thẳng những cột được phép ra
+  // ngoài thay vì lấy SELECT * rồi bỏ bớt: cột thêm sau này sẽ mặc định ở lại bên
+  // trong, chứ không mặc định thành công khai. Không có phone, không có birth_date.
+  const publicAncestors = async familyId => await db.all(
+    `SELECT id,name,generation,branch,birth_year,death_year,parent_id,spouse_id,
+            lunar_day,lunar_month,leap_policy,short_month_policy,
+            location,biography,note,photo_id,revision,updated_at,living
+       FROM ancestors WHERE family_id=? AND deleted_at IS NULL AND living=0
+      ORDER BY generation,name`, familyId);
   const familyObservances = family => {
     try { const keys = JSON.parse(family.observances ?? '[]'); return Array.isArray(keys) ? keys : DEFAULT_OBSERVANCES; }
     catch { return DEFAULT_OBSERVANCES; }
@@ -242,7 +251,7 @@ export async function createApp(config, options = {}) {
     if(!family)return res.json({family:null,ancestors:[],photos:[],memories:[],today:todayInVietnam()});
     return res.json({
       family:{name:family.name,home:family.home,observances:familyObservances(family)},
-      ancestors:(await livingAncestors(family.id)).filter(p=>!p.living), // người còn sống không công khai
+      ancestors:await publicAncestors(family.id), // người còn sống không ra khỏi đây
       photos:await db.all('SELECT id,ancestor_id,caption,created_at FROM photos WHERE family_id=? ORDER BY created_at', family.id),
       // Chỉ ký ức đã duyệt, và chỉ tên người viết — không kèm id hay email.
       memories:await db.all("SELECT m.id,m.ancestor_id,m.body,m.created_at,u.name AS author_name,'approved' AS status FROM memories m JOIN users u ON u.id=m.author_id WHERE m.family_id=? AND m.status='approved' ORDER BY m.created_at DESC LIMIT 300", family.id),
