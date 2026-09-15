@@ -1,0 +1,80 @@
+{
+  "_doc": "Danh sách người thân của dòng họ để nạp vào Cội bằng: npm run import. Ngày giỗ ghi theo ÂM LỊCH. death_year cũng là năm ÂM LỊCH. Sửa file này rồi chạy lại; người đã có trong hệ thống sẽ được bỏ qua, không tạo trùng.",
+  "people": [
+    {
+      "name": "Ông Đỗ Văn Sáo",
+      "generation": 1,
+      "branch": "Chưa phân chi",
+      "birth_year": null,
+      "death_year": 2025,
+      "parent": null,
+      "lunar_day": 13,
+      "lunar_month": 10,
+      "leap_policy": "regular",
+      "short_month_policy": "last-day",
+      "location": "",
+      "biography": "",
+      "note": ""
+    },
+    {
+      "name": "Bà Hứa Thị Hợp",
+      "generation": 1,
+      "branch": "Chưa phân chi",
+      "birth_year": null,
+      "death_year": 2026,
+      "parent": null,
+      "lunar_day": 1,
+      "lunar_month": 8,
+      "leap_policy": "regular",
+      "short_month_policy": "last-day",
+      "location": "",
+      "biography": "",
+      "note": "Cần xác nhận lại ngày: thông tin gửi sang ghi giỗ 01/08 nhưng ngày mất 01/09 âm lịch. Đang dùng 01/08."
+    },
+    {
+      "name": "Bác Đỗ Văn Lương",
+      "generation": 2,
+      "branch": "Chưa phân chi",
+      "birth_year": null,
+      "death_year": 2001,
+      "parent": null,
+      "lunar_day": 30,
+      "lunar_month": 8,
+      "leap_policy": "regular",
+      "short_month_policy": "last-day",
+      "location": "",
+      "biography": "",
+      "note": "Cùng ngày giỗ với Bác Đỗ Văn Phan."
+    },
+    {
+      "name": "Bác Đỗ Văn Phan",
+      "generation": 2,
+      "branch": "Chưa phân chi",
+      "birth_year": null,
+      "death_year": 2024,
+      "parent": null,
+      "lunar_day": 30,
+      "lunar_month": 8,
+      "leap_policy": "regular",
+      "short_month_policy": "last-day",
+      "location": "",
+      "biography": "",
+      "note": "Cùng ngày giỗ với Bác Đỗ Văn Lương."
+    },
+    {
+      "name": "Cô Đỗ Thị Lan",
+      "generation": 2,
+      "branch": "Chưa phân chi",
+      "birth_year": null,
+      "death_year": null,
+      "parent": null,
+      "lunar_day": 30,
+      "lunar_month": 12,
+      "leap_policy": "regular",
+      "short_month_policy": "last-day",
+      "location": "",
+      "biography": "",
+      "note": "Giỗ 30 Tết. Năm nào tháng Chạp chỉ có 29 ngày thì Cội lùi về ngày cuối năm."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+import { useEffect, useRef } from 'react';
+import { X, Sprout, Bell, ArrowUpRight, MapPin, CalendarDays, ChevronLeft, ChevronRight, Check, Plus, Sparkles } from 'lucide-react';
+import { monthGrid, solarLabel, lunarLabel, pad, daysBetween } from '../shared/lunar.js';
+
+export function Brand({small=false}) {return <div className={`brand ${small?'small':''}`}><Sprout aria-hidden="true"/><span>cội.</span></div>;}
+export function Avatar({name,photoId=null,size=''}) {
+  if(photoId)return <span className={`avatar photo ${size}`}><img src={`/api/photos/${photoId}`} alt={`Ảnh ${name}`} loading="lazy"/></span>;
+  return <span className={`avatar ${size}`} aria-hidden="true">{name.trim().split(/\s+/).slice(-2).map(s=>s[0]).join('').toUpperCase()}</span>;
+}
+export function Button({children,variant='',className='',...props}) {return <button className={`button ${variant} ${className}`} type="button" {...props}>{children}</button>;}
+export function Empty({title,description,action}) {return <div className="empty-state"><Sprout aria-hidden="true"/><h3>{title}</h3><p>{description}</p>{action}</div>;}
+export function Modal({title,eyebrow,children,onClose,wide=false}) {
+  const ref=useRef(null);
+  useEffect(()=>{const el=ref.current;el.showModal();return()=>{if(el.open)el.close();};},[]);
+  return <dialog ref={ref} className={`modal ${wide?'wide':''}`} onCancel={e=>{e.preventDefault();onClose();}} onClick={e=>{if(e.target===ref.current){const b=ref.current.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)onClose();}}} aria-labelledby="modal-title"><div className="modal-heading"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}<h2 id="modal-title">{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Đóng cửa sổ"><X/></button></div>{children}</dialog>;
+}
+export function Field({label,children,hint,wide=false}) {return <label className={`field ${wide?'full':''}`}><span>{label}</span>{children}{hint&&<small>{hint}</small>}</label>;}
+export function EventRow({event,today,onOpen,onRemind,reminded=false}) {
+  const away=daysBetween(today,event.date);
+  return <div className="event-row"><button className="date-stamp" onClick={()=>onOpen(event)} aria-label={`Xem ngày giỗ ${event.name}`}><b>{pad(event.lunar_day)}</b><span>THÁNG {event.lunar_month}</span></button><button className="event-copy" onClick={()=>onOpen(event)}><strong>{event.name}</strong><span>{solarLabel(event.date)} <span className="dot-separator">·</span> {away===0?'Hôm nay':away>0?`Còn ${away} ngày`:'Đã qua'}</span></button>{onRemind&&<button className={`icon-button ${reminded?'active':''}`} onClick={()=>onRemind(event)} aria-label={`Cài lời nhắc cho ${event.name}`}><Bell/></button>}</div>;
+}
+export function ObservanceRow({event,today}) {
+  const away=daysBetween(today,event.date);
+  return <div className="event-row observance"><div className="date-stamp muted-stamp"><b>{pad(event.lunar_day)}</b><span>THÁNG {event.lunar_month}</span></div><div className="event-copy"><strong>{event.name}</strong><span>{solarLabel(event.date)} <span className="dot-separator">·</span> {away===0?'Hôm nay':`Còn ${away} ngày`}</span></div><Sparkles aria-hidden="true"/></div>;
+}
+export function EventHero({event,today,onOpen,onRemind,reminded}) {
+  const days=daysBetween(today,event.date);
+  return <article className="event-hero"><div className="hero-content"><div className="eyebrow"><span className="status-dot"/>Ngày giỗ gần nhất</div><h2>{event.name}</h2><p className="event-generation">Đời thứ {event.generation} <span>·</span> {event.branch}</p><p className="inline-meta"><CalendarDays/>{lunarLabel(event.date)}<span className="dot-separator">·</span>{solarLabel(event.date)}</p><p className="inline-meta location"><MapPin/>{event.location||'Chưa cập nhật địa điểm'}</p><div className="hero-actions"><Button variant="primary" onClick={()=>onRemind(event)}>{reminded?<Check/>:<Bell/>}{reminded?'Đã đặt lời nhắc':'Nhắc tôi ngày này'}</Button><Button variant="text" onClick={()=>onOpen(event)}>Xem chi tiết<ArrowUpRight/></Button></div></div><div className="countdown" aria-label={days===0?'Ngày giỗ hôm nay':`Còn ${days} ngày`}><span>{days===0?'Ngày giỗ':'Còn'}</span><b>{pad(days)}</b><span>{days===0?'Hôm nay':'Ngày nữa'}</span></div></article>;
+}
+export function Calendar({year,month,events,observances=[],today,selected,onSelect,onMonth,compact=false}) {
+  const cells=monthGrid(year,month);
+  const byDate=new Map();events.forEach(e=>byDate.set(e.date,[...(byDate.get(e.date)||[]),e]));
+  const observedBy=new Map();observances.forEach(e=>observedBy.set(e.date,[...(observedBy.get(e.date)||[]),e]));
+  const change=n=>{let m=month+n,y=year;if(m===0){m=12;y--;}if(m===13){m=1;y++;}if(y>=1901&&y<=2198)onMonth({year:y,month:m});};
+  return <section className={`calendar-panel ${compact?'compact':''}`} aria-label={`Lịch tháng ${month} năm ${year}`}><div className="calendar-heading"><h2>Tháng {month}<span>, {year}</span></h2><div className="calendar-arrows"><button className="icon-button" onClick={()=>change(-1)} disabled={year===1901&&month===1} aria-label="Tháng trước"><ChevronLeft/></button><button className="icon-button" onClick={()=>change(1)} disabled={year===2198&&month===12} aria-label="Tháng sau"><ChevronRight/></button></div></div><div className="weekday-row">{['T2','T3','T4','T5','T6','T7','CN'].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{cells.map(cell=>{const list=byDate.get(cell.date)||[],rites=observedBy.get(cell.date)||[];return <button key={cell.date} className={`day-cell ${cell.outside?'outside':''} ${cell.date===today?'today':''} ${cell.date===selected?'selected':''} ${list.length?'has-event':''} ${rites.length?'has-rite':''}`} aria-pressed={selected===cell.date} aria-current={cell.date===today?'date':undefined} aria-label={`${solarLabel(cell.date)}, ${lunarLabel(cell.date)}${list.length?', '+list.map(e=>e.name).join(', '):''}${rites.length?', '+rites.map(e=>e.name).join(', '):''}`} onClick={()=>onSelect(cell.date)}><span className="solar-number">{Number(cell.date.slice(-2))}</span>{!compact&&<span className="lunar-number">{cell.lunar.day===1?`1/${cell.lunar.month}`:cell.lunar.day}{cell.lunar.leap?'n':''}</span>}<span className="day-dots">{list.length>0&&<span className="day-indicator"/>}{rites.length>0&&<span className="rite-indicator"/>}</span>{!compact&&list.length>0&&<span className="day-event-name">{list.length>1?`${list.length} ngày giỗ`:list[0].name.replace(/^(Cụ|Ông|Bà) /,'')}</span>}{!compact&&!list.length&&rites.length>0&&<span className="day-event-name rite">{rites[0].name.split('·')[0].trim()}</span>}</button>;})}</div><div className="calendar-legend"><span><i/>Ngày giỗ</span><span><i className="rite"/>Việc họ</span>{!compact&&<span>Số nhỏ: ngày âm · n: tháng nhuận</span>}</div></section>;
+}
+export function PageHeading({eyebrow,title,description,action}) {return <header className="page-heading"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description&&<p>{description}</p>}</div>{action}</header>;}
+export function AddButton({onClick}) {return <Button variant="primary" onClick={onClick}><Plus/>Thêm ngày giỗ</Button>;}
