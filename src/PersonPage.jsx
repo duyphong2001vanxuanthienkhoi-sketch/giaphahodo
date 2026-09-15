@@ -9,7 +9,7 @@ const CHOICES = [['yes','Có, tôi về',Check],['maybe','Chưa chắc',HelpCirc
 const LABELS = {yes:'Về được',maybe:'Chưa chắc',no:'Không về được'};
 const shortDate = at => new Date(at.includes('Z')?at:at+'Z').toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'});
 
-export default function PersonPage({ person, events, data, admin, today, go, onEdit, onDeleteRequest, onRemind, reload, notify }) {
+export default function PersonPage({ person, events, data, admin, guest = false, today, go, onEdit, onDeleteRequest, onRemind, reload, notify }) {
   const [draft,setDraft]=useState(''),[note,setNote]=useState(null),[busy,setBusy]=useState(false),[uploading,setUploading]=useState(false),[error,setError]=useState(''),[viewing,setViewing]=useState(null);
   const photos=data.photos.filter(p=>p.ancestor_id===person.id);
   const memories=data.memories.filter(m=>m.ancestor_id===person.id);
@@ -63,7 +63,7 @@ export default function PersonPage({ person, events, data, admin, today, go, onE
         <p className="inline-meta"><CalendarDays/>Giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm lịch{person.leap_policy==='both'?' · cả tháng nhuận':''}</p>
         <p className="inline-meta location"><MapPin/>{person.location||'Chưa cập nhật địa điểm'}</p>
         <div className="hero-actions">
-          <Button variant="primary" onClick={()=>onRemind(person)}><Bell/>Lời nhắc ngày giỗ</Button>
+          {!guest&&<Button variant="primary" onClick={()=>onRemind(person)}><Bell/>Lời nhắc ngày giỗ</Button>}
           {admin&&<Button onClick={onEdit}><Edit3/>Chỉnh sửa</Button>}
           {admin&&<button className="icon-button danger" aria-label={`Xóa ${person.name}`} onClick={onDeleteRequest}><Trash2/></button>}
         </div>
@@ -106,12 +106,12 @@ export default function PersonPage({ person, events, data, admin, today, go, onE
                 <Button variant="primary" disabled={busy} onClick={()=>act(()=>api('/memories/'+m.id,{method:'PATCH',body:{status:'approved'}}),'Đã đăng ký ức cho cả nhà cùng đọc.')}><Check/>Duyệt</Button>
               </div>:<button className="icon-button danger" aria-label="Thu hồi ký ức" disabled={busy} onClick={()=>act(()=>api('/memories/'+m.id,{method:'DELETE'}),'Đã thu hồi ký ức.')}><Trash2/></button>}</footer>
           </article>)}
-          <form className="memory-compose" onSubmit={submit}>
+          {guest?<p className="hint">Muốn gửi một kỷ niệm về người thân? Hãy đăng nhập bằng tài khoản dòng họ.</p>:<form className="memory-compose" onSubmit={submit}>
             <label className="field full"><span>Bạn nhớ gì về {person.name}?</span>
               <textarea rows={4} minLength={10} maxLength={4000} required placeholder="Một kỷ niệm, một lời dặn, một thói quen của người…" value={draft} onChange={e=>setDraft(e.target.value)}/></label>
             <div className="compose-footer"><small>{admin?'Ký ức bạn viết sẽ hiển thị ngay.':'Người quản lý sẽ duyệt trước khi cả nhà cùng đọc.'}</small>
               <Button variant="primary" type="submit" disabled={busy||draft.trim().length<10}><Send/>{busy?'Đang gửi…':'Gửi ký ức'}</Button></div>
-          </form>
+          </form>}
         </section>
       </div>
 
@@ -120,7 +120,7 @@ export default function PersonPage({ person, events, data, admin, today, go, onE
           <div className="section-bar"><h2><CalendarDays/>Ngày giỗ sắp tới</h2></div>
           <div className="detail-date"><CalendarDays/><div><strong>{solarLabel(next.date,{weekday:'long',day:'numeric',month:'long'})}</strong><p>{lunarLabel(next.date)}{next.shifted?' · Làm giỗ vào ngày cuối tháng':''}</p></div></div>
           {events.length>1&&<p className="hint">Lần sau nữa: {solarLabel(events[1].date)}</p>}
-          <h3><Users/>Bạn có về được không?</h3>
+          {!guest&&<><h3><Users/>Bạn có về được không?</h3>
           <div className="attend-choices">{CHOICES.map(([value,label,Icon])=><button key={value} type="button" className={`attend-choice ${mine?.status===value?'active':''}`} aria-pressed={mine?.status===value} disabled={busy} onClick={()=>answer(value)}><Icon/>{label}</button>)}</div>
           <label className="field full"><span>Nhắn thêm cho gia đình</span>
             <input maxLength={200} placeholder="Ví dụ: cháu về từ chiều hôm trước." value={note??mine?.note??''} onChange={e=>setNote(e.target.value)}
@@ -128,7 +128,7 @@ export default function PersonPage({ person, events, data, admin, today, go, onE
           <div className="attend-list">
             {responses.length===0?<p className="muted">Chưa ai trả lời. Bạn trả lời trước để cả nhà cùng biết.</p>
               :responses.map(a=><div key={a.user_id} className={`attend-row ${a.status}`}><Avatar name={a.user_name}/><div><strong>{a.user_name}</strong>{a.note&&<span>{a.note}</span>}</div><span className="pill">{LABELS[a.status]}</span></div>)}
-          </div>
+          </div></>}
         </section>}
         {person.note&&<section className="person-section"><div className="section-bar"><h2>Ghi chú ngày giỗ</h2></div><p className="person-note">{person.note}</p></section>}
         <section className="person-section">

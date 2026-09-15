@@ -126,7 +126,6 @@ test('Album ảnh: thêm nhiều ảnh, chọn ảnh đại diện, xóa thì t�
   assert.equal(fetched.status,200);
   assert.equal(fetched.type,'image/jpeg');
   assert.ok(fetched.data.length>0);
-  assert.equal((await f.request('/photos/'+first.data.id)).status,401,'ảnh không được mở khi chưa đăng nhập');
 
   const second = await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:admin,body:photoBody});
   assert.equal(second.data.portrait,false,'ảnh thứ hai không chiếm chỗ ảnh đại diện');
@@ -318,6 +317,55 @@ test('Điểm chạy nhắc lịch định kỳ chỉ mở cho lời gọi có c
   const ok = await f.request('/cron/reminders',{headers:{Authorization:'Bearer bi-mat-cron-dai-va-ngau-nhien'}});
   assert.equal(ok.status,200);
   assert.deepEqual(Object.keys(ok.data).sort(),['failed','sent']);
+});
+
+test('Khách xem được phần tưởng nhớ, nhưng không thấy gì về người còn sống', async t => {
+  const f = await fixture(t,{adminPassword:'mat-khau-quan-ly-du-dai'});
+  const admin = await f.loginDemo(), member = await f.loginDemo('member');
+  const person = (await f.request('/bootstrap',{cookie:admin})).data.ancestors[0];
+  const photo = await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:admin,body:photoBody});
+  await f.request(`/ancestors/${person.id}/memories`,{method:'POST',cookie:admin,body:{body:'Ký ức đã được duyệt cho cả nhà đọc.'}});
+  await f.request(`/ancestors/${person.id}/memories`,{method:'POST',cookie:member,body:{body:'Ký ức này còn đang chờ người quản lý duyệt.'}});
+
+  const guest = await f.request('/public');
+  assert.equal(guest.status,200);
+  assert.ok(guest.data.ancestors.length>0,'khách phải xem được gia phả');
+  assert.equal(guest.data.photos.length,1);
+  assert.equal(guest.data.memories.length,1,'chỉ ký ức đã duyệt mới lộ ra');
+
+  // Không một mẩu thông tin nào về người còn sống được lọt vào bản công khai.
+  const dump = JSON.stringify(guest.data);
+  for (const leak of ['minhha@example.test','thuan@example.test','@example','members','attendance','invitations','calendar','preferences','author_id'])
+    assert.ok(!dump.includes(leak),`bản công khai không được chứa "${leak}"`);
+
+  assert.equal((await f.request('/bootstrap')).status,401,'khách vẫn không vào được dữ liệu thành viên');
+  assert.equal((await f.request('/photos/'+photo.data.id)).status,200,'ảnh xem được khi đã mở công khai');
+
+  const kin = await fixture(t,{publicView:false});
+  const keeper = await kin.loginDemo();
+  const kept = await kin.request(`/ancestors/${(await kin.request('/bootstrap',{cookie:keeper})).data.ancestors[0].id}/photos`,{method:'POST',cookie:keeper,body:photoBody});
+  assert.equal((await kin.request('/public')).status,404,'tắt công khai thì endpoint đóng');
+  assert.equal((await kin.request('/photos/'+kept.data.id)).status,401,'tắt công khai thì ảnh cũng phải đăng nhập');
+});
+
+test('Quản lý đăng nhập bằng mật khẩu, không cần email', async t => {
+  const f = await fixture(t,{adminPassword:'mat-khau-quan-ly-du-dai'});
+  assert.equal((await f.request('/auth/password',{method:'POST',body:{password:'sai-be-bet'}})).status,401);
+  const ok = await f.request('/auth/password',{method:'POST',body:{password:'mat-khau-quan-ly-du-dai'}});
+  assert.equal(ok.status,200);
+  assert.equal(ok.data.user.role,'admin');
+
+  // Lần đăng nhập đầu tiên dựng luôn dòng họ, nên không cần SMTP để khởi tạo.
+  const boot = await f.request('/bootstrap',{cookie:ok.cookie});
+  assert.equal(boot.status,200);
+  assert.equal(boot.data.family.name,'Dòng họ Đỗ');
+  assert.notEqual(boot.data.user.family_id,'demo-family');
+
+  const again = await f.request('/auth/password',{method:'POST',body:{password:'mat-khau-quan-ly-du-dai'}});
+  assert.equal((await f.request('/bootstrap',{cookie:again.cookie})).data.family.id,boot.data.family.id,'không được tạo thêm dòng họ mới mỗi lần đăng nhập');
+
+  const off = await fixture(t);
+  assert.equal((await off.request('/auth/password',{method:'POST',body:{password:'bat-ky-thu-gi'}})).status,401,'không khai ADMIN_PASSWORD thì đường này đóng');
 });
 
 test('Quy đổi báo thức sang chuỗi thời lượng iCalendar', () => {

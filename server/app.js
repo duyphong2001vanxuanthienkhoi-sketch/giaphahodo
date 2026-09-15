@@ -152,9 +152,37 @@ export async function createApp(config, options = {}) {
     const {role} = parse(z.object({role:z.enum(['admin','member'])}).strict(),req.body);
     const user=await seedDemo(db,role); await session(res,user);res.json({user:cleanUser(user)});
   });
+  app.post('/api/auth/password', async (req,res) => {
+    const {password} = parse(z.object({password:z.string().min(1).max(200)}).strict(),req.body);
+    await limit(db,'password-ip:'+hash(req.ip),10,15*60000);
+    if(!config.adminPassword||!sameHash(hash(password),hash(config.adminPassword)))throw new AppError(401,'Mật khẩu chưa đúng.');
+    // Đăng nhập lần đầu cũng dựng luôn dòng họ, nên không cần email để khởi tạo.
+    const user = await db.transaction(async tx => {
+      let owner = await tx.get("SELECT * FROM users WHERE family_id!='demo-family' AND role='admin' AND active=1 ORDER BY created_at LIMIT 1");
+      if (owner) return owner;
+      const familyId=randomUUID(), userId=randomUUID();
+      await tx.run('INSERT INTO families(id,name) VALUES(?,?)', familyId, config.familyName);
+      await tx.run("INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,'admin')", userId, familyId, config.adminEmail||'admin@local', 'Người quản lý');
+      return tx.get('SELECT * FROM users WHERE id=?', userId);
+    });
+    await session(res,user);res.json({user:cleanUser(user)});
+  });
   app.post('/api/auth/logout', auth, async (req,res) => {
     await db.run('DELETE FROM sessions WHERE token_hash=?', hash(readCookie(req,'coi_session')));
     res.clearCookie('coi_session',{path:'/',httpOnly:true,secure:config.production,sameSite:'lax'});res.json({ok:true});
+  });
+  app.get('/api/public', async (req,res) => {
+    if(!config.publicView)throw new AppError(404,'Trang này chỉ dành cho thành viên đã đăng nhập.');
+    const family = await db.get("SELECT * FROM families ORDER BY CASE WHEN id='demo-family' THEN 1 ELSE 0 END, created_at LIMIT 1");
+    if(!family)return res.json({family:null,ancestors:[],photos:[],memories:[],today:todayInVietnam()});
+    return res.json({
+      family:{name:family.name,home:family.home,observances:familyObservances(family)},
+      ancestors:await livingAncestors(family.id),
+      photos:await db.all('SELECT id,ancestor_id,caption,created_at FROM photos WHERE family_id=? ORDER BY created_at', family.id),
+      // Chỉ ký ức đã duyệt, và chỉ tên người viết — không kèm id hay email.
+      memories:await db.all("SELECT m.id,m.ancestor_id,m.body,m.created_at,u.name AS author_name,'approved' AS status FROM memories m JOIN users u ON u.id=m.author_id WHERE m.family_id=? AND m.status='approved' ORDER BY m.created_at DESC LIMIT 300", family.id),
+      today:todayInVietnam(),
+    });
   });
   app.get('/api/bootstrap', auth, async (req,res) => {
     const {user}=req, today=todayInVietnam();
@@ -291,8 +319,18 @@ export async function createApp(config, options = {}) {
     await store.remove(photo);
     res.json({ok:true});
   });
-  app.get('/api/photos/:id',auth,async (req,res) => {
-    const photo=await db.get('SELECT * FROM photos WHERE id=? AND family_id=?', req.params.id,req.user.family_id);
+  // Xác thực tùy chọn: có phiên thì vẫn nhận ra người dùng để giữ phạm vi dòng họ,
+  // không có phiên thì vẫn cho xem khi dòng họ đã mở công khai.
+  const photoViewer = async (req,res,next) => {
+    const raw = readCookie(req,'coi_session');
+    if (raw) req.user = await db.get('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.active=1', hash(raw),Date.now());
+    if (!req.user && !config.publicView) return next(new AppError(401,'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.'));
+    next();
+  };
+  app.get('/api/photos/:id',photoViewer,async (req,res) => {
+    const photo = req.user
+      ? await db.get('SELECT * FROM photos WHERE id=? AND family_id=?', req.params.id,req.user.family_id)
+      : await db.get('SELECT * FROM photos WHERE id=?', req.params.id);
     if(!photo)throw new AppError(404,'Không tìm thấy ảnh.');
     let bytes; try { bytes=await store.read(photo); }
     catch { throw new AppError(404,'Không còn tìm thấy tệp ảnh. Hãy tải lại ảnh.'); }

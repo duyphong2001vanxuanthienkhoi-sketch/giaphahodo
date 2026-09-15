@@ -23,6 +23,10 @@ export function getConfig(overrides = {}) {
     trustProxy: process.env.TRUST_PROXY === 'true',
     // Vercel Cron signs its call with this; without it the endpoint stays shut.
     cronSecret: process.env.CRON_SECRET || '',
+    // Mật khẩu quản lý: cách vào không cần email. Rỗng thì chỉ còn đăng nhập bằng OTP.
+    adminPassword: process.env.ADMIN_PASSWORD || '',
+    // Khách chưa đăng nhập xem được phần tưởng nhớ; người còn sống vẫn cần đăng nhập.
+    publicView: process.env.PUBLIC_VIEW !== 'false',
     ...overrides,
   };
   // Vercel gives the function a read-only filesystem, so the SQLite fallback cannot
@@ -34,7 +38,9 @@ export function getConfig(overrides = {}) {
     if (config.secret.length < 32) throw new Error(`APP_SECRET phải có ít nhất 32 ký tự (máy chủ đang đọc được ${config.secret.length}).`);
     if (!config.appUrl.startsWith('https://')) throw new Error('APP_URL phải dùng HTTPS khi chạy production.');
     if (config.demo) throw new Error('Không bật tài khoản dùng thử trong production.');
-    if (config.mailDriver !== 'smtp') throw new Error('Cần MAIL_DRIVER=smtp để gửi mã đăng nhập thật.');
+    // Phải còn ít nhất một đường vào: mật khẩu quản lý, hoặc OTP qua SMTP.
+    if (!config.adminPassword && config.mailDriver !== 'smtp') throw new Error('Cần ADMIN_PASSWORD, hoặc MAIL_DRIVER=smtp để gửi mã đăng nhập.');
+    if (config.adminPassword && config.adminPassword.length < 12) throw new Error('ADMIN_PASSWORD phải có ít nhất 12 ký tự.');
     if (!config.adminEmail) throw new Error('Cần khai báo ADMIN_EMAIL trước khi mở hệ thống.');
   }
   return config;
