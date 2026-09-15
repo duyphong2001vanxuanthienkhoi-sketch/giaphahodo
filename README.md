@@ -85,7 +85,7 @@ TRUST_PROXY=false
 
 `MAIL_DRIVER` nhận ba giá trị:
 
-- `preview` — chỉ dành cho local: email ghi thành file `.eml` trong `data/mail/`, không gửi ra ngoài. **Không dùng được trên serverless** vì đĩa chỉ đọc.
+- `preview` — không gửi ra ngoài: **in toàn bộ thư ra console** (nên đọc được mã OTP ngay trong log, kể cả trên serverless) và ghi thêm tệp `.eml` vào `data/mail/` khi đĩa cho phép. Đĩa chỉ đọc thì chỉ bỏ phần ghi tệp, thư vẫn hiện trong log.
 - `brevo` — gọi `api.brevo.com` qua HTTPS. Không cần cổng SMTP hay App Password, nên hợp Vercel nhất. Cần `BREVO_API_KEY` và `BREVO_TU_EMAIL` (địa chỉ đã xác minh trong Brevo → Senders).
 - `smtp` — nhà cung cấp SMTP của bạn, qua `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`.
 

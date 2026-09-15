@@ -47,9 +47,21 @@ export function createMailer(config) {
         disableFileAccess: true, disableUrlAccess: true,
       });
       if (preview) {
-        const folder = join(dirname(config.dbPath), 'mail');
-        await mkdir(folder, { recursive: true });
-        await writeFile(join(folder, `${Date.now()}-${randomUUID()}.eml`), info.message, { mode: 0o600 });
+        // In ra console trước: cách này chạy ở mọi nơi, kể cả nền serverless nơi đĩa
+        // chỉ đọc được. Mã OTP nằm ngay trong thân thư nên đăng nhập thử được luôn.
+        console.log('\n──────── EMAIL (chế độ xem trước, KHÔNG gửi thật) ────────');
+        console.log('Tới     :', to);
+        console.log('Tiêu đề :', subject);
+        console.log(String(text || '').trim());
+        console.log('──────────────────────────────────────────────────────────\n');
+        // Ghi thêm ra tệp .eml khi đĩa cho phép; hỏng thì bỏ qua, đã có bản in trên.
+        try {
+          const folder = join(dirname(config.dbPath), 'mail');
+          await mkdir(folder, { recursive: true });
+          await writeFile(join(folder, `${Date.now()}-${randomUUID()}.eml`), info.message, { mode: 0o600 });
+        } catch (error) {
+          console.log('(không ghi được tệp .eml:', error.code || error.message, '— chỉ in ra console)');
+        }
       }
       return { preview };
     },
