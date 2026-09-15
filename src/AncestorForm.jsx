@@ -5,10 +5,10 @@ import { api } from './api.js';
 import { preparePortrait } from './image.js';
 import { occurrences, todayInVietnam, addDays, solarLabel, lunarDate, pad } from '../shared/lunar.js';
 
-const FIELDS = ['name','generation','branch','birth_year','death_year','parent_id','lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note'];
+const FIELDS = ['name','generation','branch','birth_year','death_year','parent_id','spouse_id','lunar_day','lunar_month','leap_policy','short_month_policy','location','biography','note'];
 
 export default function AncestorForm({ancestor,ancestors,onClose,onSaved}) {
-  const [form,setForm]=useState(ancestor?Object.fromEntries(FIELDS.map(k=>[k,ancestor[k]])):{name:'',generation:3,branch:'Chi trưởng',birth_year:null,death_year:null,parent_id:null,lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:''});
+  const [form,setForm]=useState(ancestor?Object.fromEntries(FIELDS.map(k=>[k,ancestor[k]])):{name:'',generation:3,branch:'Chi trưởng',birth_year:null,death_year:null,parent_id:null,spouse_id:null,lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:''});
   const [tab,setTab]=useState('basic'),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [solar,setSolar]=useState(''),[converted,setConverted]=useState(null);
   const [photo,setPhoto]=useState(null),[dropPhoto,setDropPhoto]=useState(false),[photoBusy,setPhotoBusy]=useState(false);
@@ -71,7 +71,7 @@ export default function AncestorForm({ancestor,ancestors,onClose,onSaved}) {
       <Field label="Ngày 30 trong tháng thiếu" hint="Áp dụng khi tháng chỉ có 29 ngày."><select value={form.short_month_policy} onChange={e=>set('short_month_policy',e.target.value)}><option value="last-day">Chuyển về ngày cuối tháng</option><option value="skip">Bỏ qua tháng không có ngày 30</option></select></Field>
       <div className="date-preview full">{next?<>Lần giỗ gần nhất: <strong>{solarLabel(next.date)}</strong>{next.shifted?' · Đã chuyển về ngày 29':''}</>:'Không có ngày phù hợp trong 400 ngày tới.'}</div>
       <Field label="Địa điểm" wide><input maxLength={300} placeholder="Nhà thờ họ hoặc địa chỉ làm giỗ" value={form.location} onChange={e=>set('location',e.target.value)}/></Field>
-      <Field label="Liên kết với thế hệ trước" wide hint="Một liên kết cha/mẹ hoặc người thuộc thế hệ trước để sắp xếp gia phả tưởng nhớ."><select value={form.parent_id||''} onChange={e=>set('parent_id',e.target.value||null)}><option value="">Chưa liên kết</option>{ancestors.filter(p=>p.id!==ancestor?.id&&p.generation<form.generation).map(p=><option key={p.id} value={p.id}>{p.name} · Đời {p.generation}</option>)}</select></Field>
+      <Field label="Liên kết với thế hệ trước" wide hint="Một liên kết cha/mẹ hoặc người thuộc thế hệ trước để sắp xếp gia phả tưởng nhớ."><select value={form.parent_id||''} onChange={e=>set('parent_id',e.target.value||null)}><option value="">Chưa liên kết</option>{ancestors.filter(p=>p.id!==ancestor?.id&&p.generation<form.generation).map(p=><option key={p.id} value={p.id}>{p.name} · Đời {p.generation}</option>)}</select></Field><Field label="Vợ / chồng" wide hint="Nối hai người thành một cặp. Cội tự ghi liên kết ngược lại cho người kia."><select value={form.spouse_id||''} onChange={e=>set('spouse_id',e.target.value||null)}><option value="">Chưa liên kết</option>{ancestors.filter(p=>p.id!==ancestor?.id&&p.id!==form.parent_id).map(p=><option key={p.id} value={p.id}>{p.name} · Đời {p.generation}</option>)}</select></Field>
     </div>
     <div className={tab==='memory'?'form-grid':'form-grid hidden-section'}>
       <div className="photo-field full">

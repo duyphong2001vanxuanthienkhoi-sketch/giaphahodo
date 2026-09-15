@@ -12,7 +12,7 @@ const year = z.number().int().min(1000).max(2199).nullable();
 export const REMINDER_DAYS = [0,1,3,7,14,30];
 export const ancestorSchema = z.object({
   name: text(120).min(2), generation: z.number().int().min(1).max(30), branch: text(80).min(1),
-  birth_year: year, death_year: year, parent_id: z.string().uuid().nullable(),
+  birth_year: year, death_year: year, parent_id: z.string().uuid().nullable(), spouse_id: z.string().uuid().nullable(),
   lunar_day: z.number().int().min(1).max(30), lunar_month: z.number().int().min(1).max(12),
   leap_policy: z.enum(['regular','prefer-leap','both']), short_month_policy: z.enum(['last-day','skip']),
   location: text(300), biography: text(5000), note: text(2000),

@@ -194,17 +194,42 @@ export function createApp(config, options = {}) {
     const parent=scopedAncestor(body.parent_id,user);
     if(parent.generation>=body.generation)throw new AppError(400,'Người thuộc thế hệ trước phải có số đời nhỏ hơn.');
   }
+  function validateSpouse(body,user,currentId) {
+    if (!body.spouse_id) return;
+    if(body.spouse_id===currentId)throw new AppError(400,'Một người không thể là vợ/chồng của chính mình.');
+    if(body.spouse_id===body.parent_id)throw new AppError(400,'Một người không thể vừa là cha/mẹ vừa là vợ/chồng.');
+    scopedAncestor(body.spouse_id,user);
+  }
+  /** A marriage reads the same from both sides, so the back-link is written here and
+   * whoever either side was previously paired with is released. */
+  function syncSpouse(personId,previous,next,familyId) {
+    if (previous===next) return;
+    if (previous) db.prepare('UPDATE ancestors SET spouse_id=NULL,revision=revision+1 WHERE id=? AND family_id=? AND spouse_id=?').run(previous,familyId,personId);
+    if (next) {
+      const theirs=db.prepare('SELECT spouse_id FROM ancestors WHERE id=? AND family_id=?').get(next,familyId)?.spouse_id;
+      if(theirs&&theirs!==personId)db.prepare('UPDATE ancestors SET spouse_id=NULL,revision=revision+1 WHERE id=? AND family_id=?').run(theirs,familyId);
+      db.prepare('UPDATE ancestors SET spouse_id=?,revision=revision+1 WHERE id=? AND family_id=?').run(personId,next,familyId);
+    }
+  }
   app.post('/api/ancestors',auth,admin,(req,res) => {
-    const b=parse(ancestorSchema,req.body);validateParent(b,req.user);const id=randomUUID();
+    const b=parse(ancestorSchema,req.body);validateParent(b,req.user);validateSpouse(b,req.user);const id=randomUUID();
     const cols=Object.keys(b);
-    db.prepare(`INSERT INTO ancestors(id,family_id,created_by,${cols.join(',')}) VALUES(${Array(cols.length+3).fill('?').join(',')})`).run(id,req.user.family_id,req.user.id,...Object.values(b));
+    transaction(db,()=>{
+      db.prepare(`INSERT INTO ancestors(id,family_id,created_by,${cols.join(',')}) VALUES(${Array(cols.length+3).fill('?').join(',')})`).run(id,req.user.family_id,req.user.id,...Object.values(b));
+      syncSpouse(id,null,b.spouse_id,req.user.family_id);
+    });
     res.status(201).json({id});
   });
   app.put('/api/ancestors/:id',auth,admin,(req,res) => {
-    scopedAncestor(req.params.id,req.user);const b=parse(ancestorSchema,req.body);validateParent(b,req.user,req.params.id);
+    const before=scopedAncestor(req.params.id,req.user);
+    const b=parse(ancestorSchema,req.body);validateParent(b,req.user,req.params.id);validateSpouse(b,req.user,req.params.id);
     const child=db.prepare('SELECT generation FROM ancestors WHERE parent_id=? AND deleted_at IS NULL ORDER BY generation LIMIT 1').get(req.params.id);
     if(child&&child.generation<=b.generation)throw new AppError(400,'Số đời phải nhỏ hơn số đời của thế hệ con đã liên kết.');
-    db.prepare(`UPDATE ancestors SET ${Object.keys(b).map(x=>x+'=?').join(',')},revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND family_id=?`).run(...Object.values(b),req.params.id,req.user.family_id);res.json({ok:true});
+    transaction(db,()=>{
+      db.prepare(`UPDATE ancestors SET ${Object.keys(b).map(x=>x+'=?').join(',')},revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND family_id=?`).run(...Object.values(b),req.params.id,req.user.family_id);
+      syncSpouse(req.params.id,before.spouse_id,b.spouse_id,req.user.family_id);
+    });
+    res.json({ok:true});
   });
   // Removing a person hides a lifetime of memories, so it is reversible from the trash.
   app.delete('/api/ancestors/:id',auth,admin,(req,res) => {

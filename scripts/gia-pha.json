@@ -1,5 +1,5 @@
 {
-  "_doc": "Danh sách người thân của dòng họ để nạp vào Cội bằng: npm run import. Ngày giỗ ghi theo ÂM LỊCH. death_year cũng là năm ÂM LỊCH. Sửa file này rồi chạy lại; người đã có trong hệ thống sẽ được bỏ qua, không tạo trùng.",
+  "_doc": "Danh sách người thân của dòng họ để nạp vào Cội bằng: npm run import. Ngày giỗ ghi theo ÂM LỊCH. death_year cũng là năm ÂM LỊCH. Trường parent nối lên thế hệ trước, spouse nối vợ chồng (Cội tự ghi cả hai chiều). Sửa file này rồi chạy lại; người đã có trong hệ thống sẽ được bỏ qua, không tạo trùng.",
   "people": [
     {
       "name": "Ông Đỗ Văn Sáo",
@@ -14,7 +14,8 @@
       "short_month_policy": "last-day",
       "location": "",
       "biography": "",
-      "note": ""
+      "note": "",
+      "spouse": "Bà Hứa Thị Hợp"
     },
     {
       "name": "Bà Hứa Thị Hợp",
@@ -29,7 +30,8 @@
       "short_month_policy": "last-day",
       "location": "",
       "biography": "",
-      "note": "Cần xác nhận lại ngày: thông tin gửi sang ghi giỗ 01/08 nhưng ngày mất 01/09 âm lịch. Đang dùng 01/08."
+      "note": "Cần xác nhận lại ngày: thông tin gửi sang ghi giỗ 01/08 nhưng ngày mất 01/09 âm lịch. Đang dùng 01/08. Là vợ Ông Đỗ Văn Sáo, mẹ của ba người con đời 2.",
+      "spouse": "Ông Đỗ Văn Sáo"
     },
     {
       "name": "Bác Đỗ Văn Lương",
@@ -44,7 +46,8 @@
       "short_month_policy": "last-day",
       "location": "",
       "biography": "",
-      "note": "Cùng ngày giỗ với Bác Đỗ Văn Phan."
+      "note": "Cùng ngày giỗ với Bác Đỗ Văn Phan.",
+      "spouse": null
     },
     {
       "name": "Bác Đỗ Văn Phan",
@@ -59,7 +62,8 @@
       "short_month_policy": "last-day",
       "location": "",
       "biography": "",
-      "note": "Cùng ngày giỗ với Bác Đỗ Văn Lương."
+      "note": "Cùng ngày giỗ với Bác Đỗ Văn Lương.",
+      "spouse": null
     },
     {
       "name": "Cô Đỗ Thị Lan",
@@ -74,7 +78,8 @@
       "short_month_policy": "last-day",
       "location": "",
       "biography": "",
-      "note": "Giỗ 30 Tết. Năm nào tháng Chạp chỉ có 29 ngày thì Cội lùi về ngày cuối năm."
+      "note": "Giỗ 30 Tết. Năm nào tháng Chạp chỉ có 29 ngày thì Cội lùi về ngày cuối năm.",
+      "spouse": null
     }
   ]
 }

@@ -8,6 +8,7 @@ import { DEFAULT_OBSERVANCES } from '../shared/lunar.js';
 const additions = [
   ['users', 'share_phone', 'INTEGER NOT NULL DEFAULT 0'],
   ['ancestors', 'photo_id', 'TEXT REFERENCES photos(id) ON DELETE SET NULL'],
+  ['ancestors', 'spouse_id', 'TEXT REFERENCES ancestors(id) ON DELETE SET NULL'],
   ['ancestors', 'deleted_at', 'INTEGER'],
   ['ancestors', 'revision', 'INTEGER NOT NULL DEFAULT 1'],
   ['photos', 'caption', "TEXT NOT NULL DEFAULT ''"],

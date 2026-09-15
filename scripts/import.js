@@ -40,12 +40,12 @@ try {
 
   const existing = db.prepare('SELECT id,name FROM ancestors WHERE family_id=?').all(family.id);
   const byName = new Map(existing.map(a => [a.name, a.id]));
-  let added = 0, skipped = 0, linked = 0;
+  let added = 0, skipped = 0, linked = 0, married = 0;
 
   for (const entry of roster.people) {
     if (byName.has(entry.name)) { console.log(`• Đã có ${entry.name}, giữ nguyên.`); skipped++; continue; }
-    const { parent, ...fields } = entry;
-    const person = parse(ancestorSchema, { ...fields, parent_id: null });
+    const { parent, spouse, ...fields } = entry;
+    const person = parse(ancestorSchema, { ...fields, parent_id: null, spouse_id: null });
     const id = randomUUID();
     const columns = Object.keys(person);
     db.prepare(`INSERT INTO ancestors(id,family_id,created_by,${columns.join(',')}) VALUES(${Array(columns.length + 3).fill('?').join(',')})`)
@@ -74,7 +74,20 @@ try {
     linked++;
   }
 
-  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${linked} liên kết được cập nhật. Dòng họ: ${family.name}.`);
+  // A marriage is written from both sides so either person's page shows the other.
+  for (const entry of roster.people) {
+    if (!entry.spouse) continue;
+    const selfId = byName.get(entry.name), partnerId = byName.get(entry.spouse);
+    if (!partnerId) { console.warn(`  ! Không tìm thấy "${entry.spouse}" để nối vợ/chồng cho ${entry.name}.`); continue; }
+    if (selfId === partnerId) { console.warn(`  ! ${entry.name} không thể là vợ/chồng của chính mình.`); continue; }
+    if (db.prepare('SELECT spouse_id FROM ancestors WHERE id=?').get(selfId).spouse_id === partnerId) continue;
+    db.prepare('UPDATE ancestors SET spouse_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(partnerId, selfId);
+    db.prepare('UPDATE ancestors SET spouse_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(selfId, partnerId);
+    console.log(`• Nối vợ/chồng ${entry.name} ↔ ${entry.spouse}.`);
+    married++;
+  }
+
+  console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${linked} liên kết cha/mẹ, ${married} liên kết vợ/chồng. Dòng họ: ${family.name}.`);
   const people = db.prepare('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL').all(family.id);
   const today = todayInVietnam();
   console.log('\nNgày giỗ gần nhất của từng người:');

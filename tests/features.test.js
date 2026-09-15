@@ -257,6 +257,38 @@ test('Mã QR dựng từ link webcal của chính người đang đăng nhập',
   assert.equal((await f.request('/calendar-qr.svg')).status,401);
 });
 
+test('Vợ chồng nối hai chiều, đổi bạn đời thì giải phóng liên kết cũ', async t => {
+  const f = await fixture(t), admin = await f.loginDemo(), member = await f.loginDemo('member');
+  const people = (await f.request('/bootstrap',{cookie:admin})).data.ancestors;
+  const [ong,ba,khac] = people;
+  const edit = (target,changes) => f.request('/ancestors/'+target.id,{method:'PUT',cookie:admin,
+    body:{name:target.name,generation:target.generation,branch:target.branch,birth_year:target.birth_year,death_year:target.death_year,
+      parent_id:target.parent_id,spouse_id:null,lunar_day:target.lunar_day,lunar_month:target.lunar_month,leap_policy:target.leap_policy,
+      short_month_policy:target.short_month_policy,location:target.location,biography:target.biography,note:target.note,...changes}});
+  const spouseOf = async id => (await f.request('/bootstrap',{cookie:admin})).data.ancestors.find(a=>a.id===id).spouse_id;
+
+  assert.equal((await edit(ong,{spouse_id:ong.id})).status,400,'không thể là vợ/chồng của chính mình');
+  assert.equal((await f.request('/ancestors/'+ong.id,{method:'PUT',cookie:member,body:{...ong,spouse_id:ba.id}})).status,403);
+
+  assert.equal((await edit(ong,{spouse_id:ba.id})).status,200);
+  assert.equal(await spouseOf(ong.id),ba.id);
+  assert.equal(await spouseOf(ba.id),ong.id,'liên kết phải được ghi ngược lại cho người kia');
+
+  // Nối ông với người khác: bà phải được giải phóng, không còn treo liên kết cũ.
+  assert.equal((await edit(ong,{spouse_id:khac.id})).status,200);
+  assert.equal(await spouseOf(ong.id),khac.id);
+  assert.equal(await spouseOf(khac.id),ong.id);
+  assert.equal(await spouseOf(ba.id),null,'bạn đời cũ phải được gỡ liên kết');
+
+  assert.equal((await edit(ong,{spouse_id:null})).status,200);
+  assert.equal(await spouseOf(ong.id),null);
+  assert.equal(await spouseOf(khac.id),null,'gỡ một chiều thì chiều kia cũng gỡ');
+
+  const other = await fixture(t);
+  const stranger = (await other.request('/bootstrap',{cookie:await other.loginDemo()})).data.ancestors[0];
+  assert.equal((await edit(ong,{spouse_id:stranger.id})).status,404,'không nối được với người ngoài dòng họ');
+});
+
 test('Quy đổi báo thức sang chuỗi thời lượng iCalendar', () => {
   assert.equal(alarmTrigger(7,7,0),'-P6DT17H');
   assert.equal(alarmTrigger(0,7,0),'PT7H');

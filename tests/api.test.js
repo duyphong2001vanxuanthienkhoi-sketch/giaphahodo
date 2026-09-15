@@ -27,7 +27,7 @@ async function fixture(t,overrides={}) {
   const loginDemo=async(role='admin')=>(await request('/auth/demo',{method:'POST',body:{role}})).cookie;
   return {...context,config,outbox,request,loginDemo};
 }
-const person={name:'Cụ Nguyễn Test',generation:2,branch:'Chi thử',birth_year:1910,death_year:1980,parent_id:null,lunar_day:15,lunar_month:8,leap_policy:'regular',short_month_policy:'last-day',location:'Nhà thờ họ',biography:'Ký ức được lưu lại.',note:''};
+const person={name:'Cụ Nguyễn Test',generation:2,branch:'Chi thử',birth_year:1910,death_year:1980,parent_id:null,spouse_id:null,lunar_day:15,lunar_month:8,leap_policy:'regular',short_month_policy:'last-day',location:'Nhà thờ họ',biography:'Ký ức được lưu lại.',note:''};
 test('Chặn người chưa đăng nhập, thành viên không được sửa; quản lý CRUD và dữ liệu tồn tại sau khi mở lại DB',async t=>{
   const f=await fixture(t);
   assert.equal((await f.request('/bootstrap')).status,401);

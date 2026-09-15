@@ -17,8 +17,12 @@ export default function PersonPage({ person, events, data, admin, today, go, onE
   const next=events[0];
   const responses=next?data.attendance.filter(a=>a.ancestor_id===person.id&&a.event_date===next.date):[];
   const mine=responses.find(a=>a.user_id===data.user.id);
-  const parent=data.ancestors.find(a=>a.id===person.parent_id);
+  const find=id=>id?data.ancestors.find(a=>a.id===id):null;
+  const parent=find(person.parent_id), spouse=find(person.spouse_id);
+  // The other parent is reached through the linked elder's marriage.
+  const elders=[parent,parent&&find(parent.spouse_id)].filter(Boolean);
   const children=data.ancestors.filter(a=>a.parent_id===person.id);
+  const relation=p=><button key={p.id} className="relation-link" onClick={()=>go('person/'+p.id)}><Avatar name={p.name} photoId={p.photo_id}/><span>{p.name}<small>Đời thứ {p.generation}</small></span></button>;
 
   async function act(run,message){setBusy(true);setError('');try{await run();await reload();if(message)notify(message);}catch(e){setError(e.message);}finally{setBusy(false);}}
   const submit=e=>{e.preventDefault();act(async()=>{
@@ -130,12 +134,9 @@ export default function PersonPage({ person, events, data, admin, today, go, onE
         <section className="person-section">
           <div className="section-bar"><h2><GitBranch/>Trong gia phả</h2></div>
           <div className="relation-list">
-            <div><span className="relation-label">Thế hệ trước</span>{parent
-              ? <button className="relation-link" onClick={()=>go('person/'+parent.id)}><Avatar name={parent.name} photoId={parent.photo_id}/><span>{parent.name}<small>Đời thứ {parent.generation}</small></span></button>
-              : <p className="muted">Chưa liên kết.</p>}</div>
-            <div><span className="relation-label">Thế hệ sau</span>{children.length
-              ? children.map(child=><button key={child.id} className="relation-link" onClick={()=>go('person/'+child.id)}><Avatar name={child.name} photoId={child.photo_id}/><span>{child.name}<small>Đời thứ {child.generation}</small></span></button>)
-              : <p className="muted">Chưa có ai được liên kết.</p>}</div>
+            <div><span className="relation-label">Thế hệ trước</span>{elders.length?elders.map(relation):<p className="muted">Chưa liên kết.</p>}</div>
+            <div><span className="relation-label">Vợ / chồng</span>{spouse?relation(spouse):<p className="muted">Chưa liên kết.</p>}</div>
+            <div><span className="relation-label">Thế hệ sau</span>{children.length?children.map(relation):<p className="muted">Chưa có ai được liên kết.</p>}</div>
           </div>
         </section>
       </aside>
