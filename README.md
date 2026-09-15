@@ -54,7 +54,12 @@ Mở `http://localhost:5173`.
 
 ## Đưa lên mạng
 
-Xem [DEPLOY.md](DEPLOY.md) — hướng dẫn từng bước từ lấy khóa, gắn volume, tới lúc điện thoại đổ chuông, kèm phần giải thích vì sao Vercel/Neon không hợp với app này.
+Cội chạy được trên hai kiến trúc, tự nhận theo biến môi trường — không có cờ bật/tắt nào:
+
+- **Vercel + Neon Postgres + Vercel Blob** — có `DATABASE_URL` thì dùng Postgres, có `BLOB_READ_WRITE_TOKEN` thì ảnh vào Blob, và `/api/cron/reminders` thay cho bộ quét thường trú.
+- **Railway / VPS + SQLite** — không khai hai biến trên thì Cội dùng tệp SQLite và thư mục ảnh trên đĩa, cùng một tiến trình quét mỗi 60 giây.
+
+Toàn bộ bộ test chạy trên **cả hai** engine. Xem [DEPLOY.md](DEPLOY.md) để đi từng bước.
 
 ## Cấu hình production
 
@@ -137,9 +142,12 @@ npm run backup
 ## Test và build
 
 ```bash
-npm test
+npm test                                   # SQLite
+DATABASE_URL="postgresql://..." npm run test:pg   # Postgres
 npm run build
 ```
+
+Bộ test dùng một schema riêng cho mỗi lần chạy nên không đụng dữ liệu thật, nhưng **hãy trỏ vào một branch Neon riêng cho test**, đừng dùng chung database với bản chạy thật.
 
 Bộ test bao phủ chuyển đổi lịch Việt Nam, Tết/Trung thu, tháng nhuận, tháng thiếu, ranh giới UTC+7, OTP dùng một lần, quyền quản lý/thành viên, cô lập dòng họ, lời mời bị thu hồi, xuất iCalendar và chống gửi nhắc lặp.
 

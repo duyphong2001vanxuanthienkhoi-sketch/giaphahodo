@@ -1,8 +1,9 @@
+-- Sinh từ schema.sql cho Postgres. Sửa schema.sql rồi sinh lại.
 CREATE TABLE IF NOT EXISTS families (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   home TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -12,12 +13,12 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT NOT NULL DEFAULT '',
   role TEXT NOT NULL CHECK(role IN ('admin','member')),
   active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at INTEGER NOT NULL
+  expires_at BIGINT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS otp_challenges (
   id TEXT PRIMARY KEY,
@@ -25,12 +26,12 @@ CREATE TABLE IF NOT EXISTS otp_challenges (
   code_hash TEXT NOT NULL,
   invite_hash TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
-  expires_at INTEGER NOT NULL
+  expires_at BIGINT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS rate_limits (
   scope TEXT PRIMARY KEY,
   count INTEGER NOT NULL,
-  reset_at INTEGER NOT NULL
+  reset_at BIGINT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS invitations (
   id TEXT PRIMARY KEY,
@@ -40,10 +41,10 @@ CREATE TABLE IF NOT EXISTS invitations (
   role TEXT NOT NULL CHECK(role IN ('admin','member')),
   token_hash TEXT NOT NULL UNIQUE,
   created_by TEXT NOT NULL REFERENCES users(id),
-  expires_at INTEGER NOT NULL,
-  used_at INTEGER,
-  revoked_at INTEGER,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  expires_at BIGINT NOT NULL,
+  used_at BIGINT,
+  revoked_at BIGINT,
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS ancestors (
   id TEXT PRIMARY KEY,
@@ -62,7 +63,7 @@ CREATE TABLE IF NOT EXISTS ancestors (
   biography TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',
   created_by TEXT NOT NULL REFERENCES users(id),
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS reminder_preferences (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -78,13 +79,13 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   PRIMARY KEY(user_id, ancestor_id)
 );
 CREATE TABLE IF NOT EXISTS mail_deliveries (
-  id INTEGER PRIMARY KEY,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   delivery_key TEXT NOT NULL UNIQUE,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   ancestor_id TEXT NOT NULL REFERENCES ancestors(id) ON DELETE CASCADE,
   status TEXT NOT NULL CHECK(status IN ('pending','sent','failed')),
   attempts INTEGER NOT NULL DEFAULT 0,
-  attempted_at INTEGER NOT NULL,
+  attempted_at BIGINT NOT NULL,
   sent_at TEXT,
   error TEXT
 );
@@ -95,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_invites_family ON invitations(family_id);
 CREATE TABLE IF NOT EXISTS calendar_tokens (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS photos (
   id TEXT PRIMARY KEY,
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS photos (
   caption TEXT NOT NULL DEFAULT '',
   url TEXT NOT NULL DEFAULT '',
   created_by TEXT NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS memories (
   id TEXT PRIMARY KEY,
@@ -116,8 +117,8 @@ CREATE TABLE IF NOT EXISTS memories (
   body TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
   reviewed_by TEXT REFERENCES users(id),
-  reviewed_at INTEGER,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  reviewed_at BIGINT,
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
 );
 CREATE TABLE IF NOT EXISTS attendance (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -125,7 +126,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   event_date TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN ('yes','maybe','no')),
   note TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS'),
   PRIMARY KEY(user_id,ancestor_id,event_date)
 );
 CREATE INDEX IF NOT EXISTS idx_memories_ancestor ON memories(ancestor_id,status);

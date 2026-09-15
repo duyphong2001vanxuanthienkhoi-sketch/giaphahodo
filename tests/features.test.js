@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { createApp } from '../server/app.js';
+import { openDatabase } from '../server/db.js';
 import { getConfig } from '../server/config.js';
 import { alarmTrigger } from '../server/calendar.js';
 import { occurrences, todayInVietnam, addDays, observanceEvents } from '../shared/lunar.js';
@@ -16,9 +18,14 @@ async function fixture(t, overrides = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coi-feature-'));
   const outbox = [];
   const config = getConfig({production:false,dbPath:join(dir,'db.sqlite'),uploadDir:join(dir,'uploads'),secret:'test-secret-that-is-at-least-32-characters',demo:true,remindersEnabled:false,adminEmail:'admin@example.test',appUrl:'http://localhost:5173',...overrides});
-  const context = createApp(config, {mailer:{send:async m=>{outbox.push(m);return {preview:true};}}});
+  // One Neon database, one throwaway schema per fixture, so the same suite proves
+  // both engines. Without DATABASE_URL it stays on a temp SQLite file.
+  const schema = process.env.DATABASE_URL ? 'test_' + randomUUID().replaceAll('-','').slice(0,12) : '';
+  const target = process.env.DATABASE_URL || config.dbPath;
+  const db = await openDatabase(target, { schema });
+  const context = await createApp(config, {db, mailer:{send:async m=>{outbox.push(m);return {preview:true};}}});
   const server = await new Promise(resolve=>{const s=context.app.listen(0,'127.0.0.1',()=>resolve(s));});
-  t.after(async()=>{await new Promise(r=>server.close(r));context.db.close();rmSync(dir,{recursive:true,force:true});});
+  t.after(async()=>{await new Promise(r=>server.close(r));await db.dropSchema?.();await db.close();rmSync(dir,{recursive:true,force:true});});
   const base = `http://127.0.0.1:${server.address().port}`;
   async function request(path,{method='GET',body,cookie,headers={}}={}) {
     const response = await fetch(base+'/api'+path,{method,headers:{'Content-Type':'application/json','X-Coi-Request':'1',...(cookie?{Cookie:cookie}:{}),...headers},body:body===undefined?undefined:JSON.stringify(body)});
@@ -28,7 +35,7 @@ async function fixture(t, overrides = {}) {
     return {status:response.status,data,type,cookie:response.headers.get('set-cookie')?.split(';')[0],headers:response.headers};
   }
   const loginDemo = async(role='admin')=>(await request('/auth/demo',{method:'POST',body:{role}})).cookie;
-  return {...context,config,dir,outbox,request,loginDemo};
+  return {...context,config,dir,schema,target,outbox,request,loginDemo};
 }
 
 test('Feed lịch: token mở được không cần đăng nhập, trải nhiều năm, đổi token thì link cũ chết', async t => {
@@ -284,9 +291,28 @@ test('Vợ chồng nối hai chiều, đổi bạn đời thì giải phóng li�
   assert.equal(await spouseOf(ong.id),null);
   assert.equal(await spouseOf(khac.id),null,'gỡ một chiều thì chiều kia cũng gỡ');
 
-  const other = await fixture(t);
-  const stranger = (await other.request('/bootstrap',{cookie:await other.loginDemo()})).data.ancestors[0];
-  assert.equal((await edit(ong,{spouse_id:stranger.id})).status,404,'không nối được với người ngoài dòng họ');
+  // A second family inside the same app: opening a second pool would not isolate on
+  // Neon's pooled endpoint, where SET search_path does not survive connection reuse.
+  const challenge = await f.request('/auth/request-code',{method:'POST',body:{email:'admin@example.test'}});
+  const code = f.outbox.at(-1).text.match(/\b\d{6}\b/)[0];
+  const outsider = (await f.request('/auth/verify',{method:'POST',body:{challengeId:challenge.data.challengeId,code}})).cookie;
+  const stranger = await f.request('/ancestors',{method:'POST',cookie:outsider,body:{
+    name:'Cụ Nhà Khác',generation:1,branch:'Chi khác',birth_year:null,death_year:null,parent_id:null,spouse_id:null,
+    lunar_day:5,lunar_month:5,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:''}});
+  assert.equal(stranger.status,201);
+  assert.equal((await edit(ong,{spouse_id:stranger.data.id})).status,404,'không nối được với người ngoài dòng họ');
+});
+
+test('Điểm chạy nhắc lịch định kỳ chỉ mở cho lời gọi có chữ ký đúng', async t => {
+  const closed = await fixture(t);
+  assert.equal((await closed.request('/cron/reminders')).status,401,'không khai CRON_SECRET thì endpoint phải đóng');
+
+  const f = await fixture(t,{cronSecret:'bi-mat-cron-dai-va-ngau-nhien',remindersEnabled:true});
+  assert.equal((await f.request('/cron/reminders')).status,401,'thiếu chữ ký phải bị từ chối');
+  assert.equal((await f.request('/cron/reminders',{headers:{Authorization:'Bearer sai-be-bet'}})).status,401);
+  const ok = await f.request('/cron/reminders',{headers:{Authorization:'Bearer bi-mat-cron-dai-va-ngau-nhien'}});
+  assert.equal(ok.status,200);
+  assert.deepEqual(Object.keys(ok.data).sort(),['failed','sent']);
 });
 
 test('Quy đổi báo thức sang chuỗi thời lượng iCalendar', () => {

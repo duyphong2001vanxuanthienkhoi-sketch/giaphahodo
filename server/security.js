@@ -9,11 +9,11 @@ export function sameHash(a, b) {
 export class AppError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
-export function limit(db, scope, maximum, windowMs, now = Date.now()) {
-  db.prepare('DELETE FROM rate_limits WHERE reset_at < ?').run(now);
-  const row = db.prepare('SELECT * FROM rate_limits WHERE scope=?').get(scope);
+export async function limit(db, scope, maximum, windowMs, now = Date.now()) {
+  await db.run('DELETE FROM rate_limits WHERE reset_at < ?', now);
+  const row = await db.get('SELECT * FROM rate_limits WHERE scope=?', scope);
   if (row && row.count >= maximum) throw new AppError(429, 'Bạn đã thử nhiều lần. Vui lòng đợi một lúc rồi thử lại.');
-  db.prepare('INSERT INTO rate_limits(scope,count,reset_at) VALUES(?,1,?) ON CONFLICT(scope) DO UPDATE SET count=count+1').run(scope, now + windowMs);
+  await db.run('INSERT INTO rate_limits(scope,count,reset_at) VALUES(?,1,?) ON CONFLICT(scope) DO UPDATE SET count=rate_limits.count+1', scope, now + windowMs);
 }
 export function readCookie(req, name) {
   return (req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith(name + '='))?.slice(name.length + 1);

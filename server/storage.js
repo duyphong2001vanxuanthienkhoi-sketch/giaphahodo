@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { put, del } from '@vercel/blob';
 import { AppError } from './security.js';
 
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -24,13 +25,39 @@ export function decodeImage(value) {
   return { mime, bytes };
 }
 
-export const photoPath = (dir, id, mime) => join(dir, id + (EXTENSIONS[mime] || '.bin'));
-export function writePhoto(dir, id, mime, bytes) {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(photoPath(dir, id, mime), bytes, { mode: 0o600 });
+const fileName = (id, mime) => id + (EXTENSIONS[mime] || '.bin');
+
+function diskStore(dir) {
+  const pathFor = photo => join(dir, fileName(photo.id, photo.mime));
+  return {
+    kind: 'disk',
+    async write(id, mime, bytes) { mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, fileName(id, mime)), bytes, { mode: 0o600 }); return ''; },
+    async read(photo) { return readFileSync(pathFor(photo)); },
+    async remove(photo) { try { rmSync(pathFor(photo), { force: true }); } catch { /* the row is the record of truth */ } },
+  };
 }
-export const readPhoto = (dir, id, mime) => readFileSync(photoPath(dir, id, mime));
-export function removePhoto(dir, id, mime) {
-  try { rmSync(photoPath(dir, id, mime), { force: true }); }
-  catch { /* The row is the record of truth; a stale file is swept by backup review. */ }
+
+/** Vercel's filesystem does not survive an invocation, so photos live in Blob storage.
+ * The blob URL is unguessable but public, so `/api/photos/:id` stays an authenticated
+ * proxy rather than being handed to the browser — the family gate does not loosen. */
+function blobStore(token) {
+  return {
+    kind: 'blob',
+    async write(id, mime, bytes) {
+      const { url } = await put(`photos/${fileName(id, mime)}`, bytes, { access: 'public', contentType: mime, token, addRandomSuffix: true });
+      return url;
+    },
+    async read(photo) {
+      if (!photo.url) throw new AppError(404, 'Ảnh chưa có địa chỉ lưu trữ.');
+      const response = await fetch(photo.url);
+      if (!response.ok) throw new AppError(404, 'Không tải được ảnh từ kho lưu trữ.');
+      return Buffer.from(await response.arrayBuffer());
+    },
+    async remove(photo) { if (photo.url) await del(photo.url, { token }).catch(() => {}); },
+  };
+}
+
+export function createStorage(config) {
+  const token = config.blobToken || process.env.BLOB_READ_WRITE_TOKEN || '';
+  return token ? blobStore(token) : diskStore(config.uploadDir);
 }

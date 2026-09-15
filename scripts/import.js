@@ -15,11 +15,11 @@ if (!Array.isArray(roster.people) || !roster.people.length) {
   process.exit(1);
 }
 
-const db = openDatabase(config.dbPath);
+const db = await openDatabase(config.databaseUrl || config.dbPath);
 try {
   // The demo family is fixture data; the real line is the other one.
-  let family = db.prepare("SELECT * FROM families WHERE id!='demo-family' ORDER BY created_at LIMIT 1").get();
-  let owner = family ? db.prepare("SELECT * FROM users WHERE family_id=? AND role='admin' ORDER BY created_at LIMIT 1").get(family.id) : null;
+  let family = await db.get("SELECT * FROM families WHERE id!='demo-family' ORDER BY created_at LIMIT 1");
+  let owner = family ? await db.get("SELECT * FROM users WHERE family_id=? AND role='admin' ORDER BY created_at LIMIT 1", family.id) : null;
 
   if (!family) {
     if (!config.adminEmail) {
@@ -28,17 +28,17 @@ try {
       process.exit(1);
     }
     const familyId = randomUUID(), userId = randomUUID();
-    transaction(db, () => {
-      db.prepare('INSERT INTO families(id,name) VALUES(?,?)').run(familyId, config.familyName);
-      db.prepare("INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,'admin')").run(userId, familyId, config.adminEmail, 'Người quản lý');
+    await db.transaction(async tx => {
+      await tx.run('INSERT INTO families(id,name) VALUES(?,?)', familyId, config.familyName);
+      await tx.run("INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,'admin')", userId, familyId, config.adminEmail, 'Người quản lý');
     });
-    family = db.prepare('SELECT * FROM families WHERE id=?').get(familyId);
-    owner = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
+    family = await db.get('SELECT * FROM families WHERE id=?', familyId);
+    owner = await db.get('SELECT * FROM users WHERE id=?', userId);
     console.log(`Đã tạo dòng họ "${family.name}" và tài khoản quản lý ${config.adminEmail}.`);
   }
   if (!owner) { console.error('Dòng họ chưa có người quản lý nào để ghi nhận người tạo bản ghi.'); process.exit(1); }
 
-  const existing = db.prepare('SELECT id,name FROM ancestors WHERE family_id=?').all(family.id);
+  const existing = await db.all('SELECT id,name FROM ancestors WHERE family_id=?', family.id);
   const byName = new Map(existing.map(a => [a.name, a.id]));
   let added = 0, skipped = 0, linked = 0, married = 0;
 
@@ -48,8 +48,8 @@ try {
     const person = parse(ancestorSchema, { ...fields, parent_id: null, spouse_id: null });
     const id = randomUUID();
     const columns = Object.keys(person);
-    db.prepare(`INSERT INTO ancestors(id,family_id,created_by,${columns.join(',')}) VALUES(${Array(columns.length + 3).fill('?').join(',')})`)
-      .run(id, family.id, owner.id, ...Object.values(person));
+    await db.run(`INSERT INTO ancestors(id,family_id,created_by,${columns.join(',')}) VALUES(${Array(columns.length + 3).fill('?').join(',')})`,
+      id, family.id, owner.id, ...Object.values(person));
     byName.set(entry.name, id);
     console.log(`• Đã thêm ${entry.name} — giỗ ${pad(entry.lunar_day)}/${pad(entry.lunar_month)} âm lịch.`);
     added++;
@@ -62,14 +62,14 @@ try {
     const childId = byName.get(entry.name), parentId = byName.get(entry.parent);
     if (!parentId) { console.warn(`  ! Không tìm thấy "${entry.parent}" để nối cho ${entry.name}.`); continue; }
     if (childId === parentId) { console.warn(`  ! ${entry.name} không thể là cha/mẹ của chính mình.`); continue; }
-    const child = db.prepare('SELECT generation,parent_id FROM ancestors WHERE id=?').get(childId);
-    const elder = db.prepare('SELECT generation FROM ancestors WHERE id=?').get(parentId);
+    const child = await db.get('SELECT generation,parent_id FROM ancestors WHERE id=?', childId);
+    const elder = await db.get('SELECT generation FROM ancestors WHERE id=?', parentId);
     if (elder.generation >= child.generation) {
       console.warn(`  ! Bỏ qua nối ${entry.name} → ${entry.parent}: người thế hệ trước phải có số đời nhỏ hơn.`);
       continue;
     }
     if (child.parent_id === parentId) continue;
-    db.prepare('UPDATE ancestors SET parent_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(parentId, childId);
+    await db.run('UPDATE ancestors SET parent_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?', parentId, childId);
     console.log(`• Nối ${entry.name} → ${entry.parent}.`);
     linked++;
   }
@@ -80,15 +80,15 @@ try {
     const selfId = byName.get(entry.name), partnerId = byName.get(entry.spouse);
     if (!partnerId) { console.warn(`  ! Không tìm thấy "${entry.spouse}" để nối vợ/chồng cho ${entry.name}.`); continue; }
     if (selfId === partnerId) { console.warn(`  ! ${entry.name} không thể là vợ/chồng của chính mình.`); continue; }
-    if (db.prepare('SELECT spouse_id FROM ancestors WHERE id=?').get(selfId).spouse_id === partnerId) continue;
-    db.prepare('UPDATE ancestors SET spouse_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(partnerId, selfId);
-    db.prepare('UPDATE ancestors SET spouse_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(selfId, partnerId);
+    if ((await db.get('SELECT spouse_id FROM ancestors WHERE id=?', selfId)).spouse_id === partnerId) continue;
+    await db.run('UPDATE ancestors SET spouse_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?', partnerId, selfId);
+    await db.run('UPDATE ancestors SET spouse_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?', selfId, partnerId);
     console.log(`• Nối vợ/chồng ${entry.name} ↔ ${entry.spouse}.`);
     married++;
   }
 
   console.log(`\n${added} người được thêm, ${skipped} người đã có sẵn, ${linked} liên kết cha/mẹ, ${married} liên kết vợ/chồng. Dòng họ: ${family.name}.`);
-  const people = db.prepare('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL').all(family.id);
+  const people = await db.all('SELECT * FROM ancestors WHERE family_id=? AND deleted_at IS NULL', family.id);
   const today = todayInVietnam();
   console.log('\nNgày giỗ gần nhất của từng người:');
   for (const person of people) {
