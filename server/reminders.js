@@ -34,6 +34,7 @@ export async function runReminders({db,mailer,config,now=new Date()}) {
   await db.run('DELETE FROM otp_challenges WHERE expires_at<?', timestamp);
   await db.run('DELETE FROM mail_deliveries WHERE attempted_at<?', timestamp-180*86400000);
   await db.run('DELETE FROM attendance WHERE event_date<?', addDays(today,-400));
+  await db.run('DELETE FROM audit_log WHERE created_at<?', addDays(today,-365)+' 00:00:00');
   return {sent,failed};
 }
 export function startScheduler(context) {

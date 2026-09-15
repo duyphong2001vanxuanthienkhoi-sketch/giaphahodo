@@ -86,8 +86,24 @@ export async function createApp(config, options = {}) {
     return { url:url.toString(), webcal:url.toString().replace(/^https?:/,'webcal:') };
   }
 
+  /** Nhật ký quản trị: ai vào, ai được tạo, ai đổi quyền. Ghi vào bảng chứ không ra
+   * tệp, vì đĩa của nền serverless chỉ đọc được. Lưu băm của IP thay vì IP thật. */
+  async function record(action, { actor = '', detail = '', familyId = null, req: request = null } = {}) {
+    try {
+      await db.run('INSERT INTO audit_log(id,family_id,action,actor,detail,ip_hash) VALUES(?,?,?,?,?,?)',
+        randomUUID(), familyId, action, String(actor).slice(0,254), String(detail).slice(0,500),
+        request ? hash(request.ip).slice(0,32) : '');
+    } catch (error) {
+      // Nhật ký hỏng thì không được kéo đổ thao tác chính.
+      console.error('[Cội] Không ghi được nhật ký:', error.message);
+    }
+  }
+
   app.get('/api/health', async (req,res) => res.json({ok:true}));
-  app.get('/api/config', async (req,res) => res.json({demo:config.demo,mailPreview:!config.production && config.mailDriver==='preview',familyName:config.familyName}));
+  app.get('/api/config', async (req,res) => res.json({demo:config.demo,mailPreview:!config.production && config.mailDriver==='preview',familyName:config.familyName,
+    // Chỉ cho biết đường nào đang bật, không bao giờ lộ giá trị — màn đăng nhập
+    // dùng để chọn đúng chế độ mặc định, và giúp chẩn đoán khi cấu hình thiếu.
+    passwordLogin:!!config.adminPassword, emailLogin:config.mailDriver==='smtp'||config.mailDriver==='brevo', publicView:config.publicView}));
   app.get('/api/invitation', async (req,res) => {
     const invite = await getInvite(req.query.token);
     if (!invite) throw new AppError(404,'Lời mời đã hết hạn hoặc không còn hiệu lực. Hãy xin link mời mới.');
@@ -120,6 +136,7 @@ export async function createApp(config, options = {}) {
     if (!challenge || challenge.expires_at < Date.now() || challenge.attempts >= 5) throw new AppError(400,'Mã không hợp lệ hoặc đã hết hạn. Hãy yêu cầu mã mới.');
     await db.run('UPDATE otp_challenges SET attempts=attempts+1 WHERE id=?', challengeId);
     if (!sameHash(challenge.code_hash,otpHash(config.secret,challengeId,code))) throw new AppError(400,'Mã xác nhận chưa đúng.');
+    let created=false;
     const user = await db.transaction(async tx => {
       let u = await tx.get('SELECT * FROM users WHERE email=? AND active=1', challenge.email);
       if (!u) {
@@ -141,11 +158,14 @@ export async function createApp(config, options = {}) {
           const id=randomUUID();
           await tx.run('INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,?)', id,familyId,challenge.email,name,role);
           u=await tx.get('SELECT * FROM users WHERE id=?', id);
+          created=true;
         }
       }
       await tx.run('DELETE FROM otp_challenges WHERE email=?', challenge.email);
       return u;
     });
+    if(created)await record('tai-khoan-moi',{actor:user.email,detail:`quyền ${user.role}, vào bằng mã OTP`,familyId:user.family_id,req});
+    await record('dang-nhap',{actor:user.email,detail:'bằng mã OTP',familyId:user.family_id,req});
     await session(res,user);res.json({user:cleanUser(user)});
   });
   if (config.demo) app.post('/api/auth/demo', async (req,res) => {
@@ -158,7 +178,10 @@ export async function createApp(config, options = {}) {
     // So cả hai vế và chỉ trả một thông điệp, để không lộ email nào là đúng.
     const emailOk = !!config.adminEmail && sameHash(hash(email),hash(config.adminEmail));
     const passOk = !!config.adminPassword && sameHash(hash(password),hash(config.adminPassword));
-    if(!emailOk||!passOk)throw new AppError(401,'Email hoặc mật khẩu chưa đúng.');
+    if(!emailOk||!passOk){
+      await record('dang-nhap-that-bai',{actor:email,detail:'sai email hoặc mật khẩu',req});
+      throw new AppError(401,'Email hoặc mật khẩu chưa đúng.');
+    }
     // Đăng nhập lần đầu cũng dựng luôn dòng họ, nên không cần email để khởi tạo.
     const user = await db.transaction(async tx => {
       let owner = await tx.get("SELECT * FROM users WHERE family_id!='demo-family' AND role='admin' AND active=1 ORDER BY created_at LIMIT 1");
@@ -168,6 +191,7 @@ export async function createApp(config, options = {}) {
       await tx.run("INSERT INTO users(id,family_id,email,name,role) VALUES(?,?,?,?,'admin')", userId, familyId, config.adminEmail, 'Người quản lý');
       return tx.get('SELECT * FROM users WHERE id=?', userId);
     });
+    await record('dang-nhap',{actor:user.email,detail:'bằng mật khẩu quản lý',familyId:user.family_id,req});
     await session(res,user);res.json({user:cleanUser(user)});
   });
   app.post('/api/auth/logout', auth, async (req,res) => {
@@ -200,6 +224,7 @@ export async function createApp(config, options = {}) {
         : await db.all(memorySql+" AND (m.status='approved' OR m.author_id=?) ORDER BY m.created_at DESC LIMIT 300", user.family_id,user.id),
       attendance:await db.all('SELECT a.ancestor_id,a.event_date,a.status,a.note,a.user_id,u.name AS user_name FROM attendance a JOIN users u ON u.id=a.user_id WHERE u.family_id=? AND a.event_date>=? ORDER BY a.event_date', user.family_id,today),
       photos:await db.all('SELECT id,ancestor_id,caption,bytes,created_at FROM photos WHERE family_id=? ORDER BY created_at', user.family_id),
+      auditLog:user.role==='admin'?await db.all('SELECT id,action,actor,detail,created_at FROM audit_log ORDER BY created_at DESC LIMIT 100'):[],
       trash:user.role==='admin'?await db.all('SELECT id,name,generation,branch,lunar_day,lunar_month,deleted_at FROM ancestors WHERE family_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 50', user.family_id):[],
       calendar:feedUrls(await calendarToken(user.id)),
       demo:user.family_id==='demo-family',today,
@@ -381,6 +406,7 @@ export async function createApp(config, options = {}) {
       await tx.run('INSERT INTO invitations(id,family_id,email,name,role,token_hash,created_by,expires_at) VALUES(?,?,?,?,?,?,?,?)', id,req.user.family_id,b.email,b.name,b.role,hash(raw),req.user.id,expiresAt);
     });
     const url=new URL(config.appUrl);url.searchParams.set('invite',raw);
+    await record('moi-thanh-vien',{actor:req.user.email,detail:`mời ${b.email} với quyền ${b.role}`,familyId:req.user.family_id,req});
     // The invitation is copied by the administrator; no unsolicited email is sent.
     res.status(201).json({id,url:url.toString(),expiresAt});
   });
@@ -399,6 +425,7 @@ export async function createApp(config, options = {}) {
     }
     await db.run('UPDATE users SET role=?,active=? WHERE id=?', b.role||member.role,b.active===undefined?1:+b.active,member.id);
     if(b.active===false)await db.run('DELETE FROM sessions WHERE user_id=?', member.id);
+    await record(b.active===false?'thu-hoi-truy-cap':'doi-quyen',{actor:req.user.email,detail:`${member.email}${b.role?' → '+b.role:''}`,familyId:req.user.family_id,req});
     res.json({ok:true});
   });
   async function calendarFor(user) {

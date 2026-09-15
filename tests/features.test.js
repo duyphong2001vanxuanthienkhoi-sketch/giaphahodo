@@ -377,6 +377,38 @@ test('Quản lý đăng nhập bằng email và mật khẩu, không cần tới
   assert.equal((await off.request('/auth/password',{method:'POST',body:{email:'admin@example.test',password:'bat-ky-thu-gi'}})).status,401,'không khai ADMIN_PASSWORD thì đường này đóng');
 });
 
+test('Nhật ký ghi lại tài khoản mới, lần đăng nhập và lần trượt', async t => {
+  const f = await fixture(t,{adminPassword:'phong2001',adminEmail:'quanly@example.test'});
+  const login = body => f.request('/auth/password',{method:'POST',body});
+
+  await login({email:'quanly@example.test',password:'sai-be-bet'});
+  const admin = (await login({email:'quanly@example.test',password:'phong2001'})).cookie;
+  const invited = await f.request('/invitations',{method:'POST',cookie:admin,body:{name:'Người Được Mời',email:'nguoi-moi@example.test',role:'member'}});
+  const token = new URL(invited.data.url).searchParams.get('invite');
+  const challenge = await f.request('/auth/request-code',{method:'POST',body:{email:'nguoi-moi@example.test',inviteToken:token}});
+  const code = f.outbox.at(-1).text.match(/\b\d{6}\b/)[0];
+  await f.request('/auth/verify',{method:'POST',body:{challengeId:challenge.data.challengeId,code}});
+
+  const log = (await f.request('/bootstrap',{cookie:admin})).data.auditLog;
+  const kinds = log.map(r=>r.action);
+  assert.ok(kinds.includes('dang-nhap-that-bai'),'phải ghi lần đăng nhập trượt');
+  assert.ok(kinds.includes('dang-nhap'),'phải ghi lần đăng nhập thành công');
+  assert.ok(kinds.includes('moi-thanh-vien'),'phải ghi lần mời thành viên');
+  assert.ok(kinds.includes('tai-khoan-moi'),'phải ghi tài khoản mới được tạo');
+
+  const created = log.find(r=>r.action==='tai-khoan-moi');
+  assert.equal(created.actor,'nguoi-moi@example.test');
+  assert.match(created.detail,/quyền member/);
+  assert.ok(new Date(created.created_at+'Z').getTime()>Date.now()-120000,'mốc thời gian phải là hiện tại');
+
+  // Nhật ký chỉ dành cho quản lý, và không bao giờ chứa IP thật hay mật khẩu.
+  const member = await f.loginDemo('member');
+  assert.deepEqual((await f.request('/bootstrap',{cookie:member})).data.auditLog,[]);
+  const dump = JSON.stringify(log);
+  assert.ok(!dump.includes('phong2001'),'nhật ký không được chứa mật khẩu');
+  assert.ok(!dump.includes('ip_hash')&&!dump.includes('127.0.0.1'),'không trả IP ra ngoài');
+});
+
 test('Gửi mail qua Brevo: đúng địa chỉ API, đúng khóa, và lỗi thì báo ra', async () => {
   const { createMailer } = await import('../server/mail.js');
   const config = { mailDriver:'brevo', brevoKey:'khoa-brevo-gia-lap', brevoFrom:'nguoi-gui@example.test', brevoName:'Dòng họ Đỗ' };

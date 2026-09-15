@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Bell, ShieldCheck, Save, Landmark, Download, Trash2, RotateCcw, Sparkles, Phone } from 'lucide-react';
+import { Bell, ShieldCheck, Save, Landmark, Download, Trash2, RotateCcw, Sparkles, Phone, ScrollText } from 'lucide-react';
 import { api } from './api.js';
 import { Avatar, Button, Field, PageHeading, Modal } from './components.jsx';
 import CalendarSync from './CalendarSync.jsx';
 import { pad, OBSERVANCES } from '../shared/lunar.js';
 
 const REMINDER_DAYS = [0,1,3,7,14,30];
+const AUDIT_LABELS = {'tai-khoan-moi':'Tài khoản mới','dang-nhap':'Đăng nhập','dang-nhap-that-bai':'Đăng nhập trượt','moi-thanh-vien':'Mời thành viên','doi-quyen':'Đổi quyền','thu-hoi-truy-cap':'Thu hồi'};
 const dayLabel = day => day===0?'Đúng ngày':`Trước ${day} ngày`;
 
 export default function Account({data,reload,notify,initialTab='profile'}) {
@@ -72,6 +73,16 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
         {tab==='data'&&admin&&<>
           <div className="settings-title"><h2>Dữ liệu của dòng họ</h2><p>Bản sao để gia đình tự giữ, và nơi tìm lại những gì đã lỡ xóa.</p></div>
           <div className="data-export"><div><strong>Tải toàn bộ dữ liệu</strong><p>Một tệp JSON gồm gia phả, ký ức, thành viên và điểm danh. Ảnh chân dung nằm trong bản sao lưu của máy chủ, không nằm trong tệp này.</p></div><a className="button" href="/api/export.json"><Download/>Tải tệp JSON</a></div>
+          <section className="trash-panel">
+            <h3><ScrollText/>Nhật ký quản trị</h3>
+            {!data.auditLog?.length?<p className="muted">Chưa có gì được ghi lại.</p>
+              :<div className="audit-list">{data.auditLog.map(row=><div className="audit-row" key={row.id}>
+                <span className={`audit-tag ${row.action}`}>{AUDIT_LABELS[row.action]||row.action}</span>
+                <div><strong>{row.actor||'—'}</strong>{row.detail&&<span>{row.detail}</span>}</div>
+                <small>{new Date(row.created_at+'Z').toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</small>
+              </div>)}</div>}
+            <p className="hint">Giữ lại 100 việc gần nhất; bản ghi quá một năm được dọn tự động. Địa chỉ IP lưu dưới dạng băm, không lưu IP thật.</p>
+          </section>
           <section className="trash-panel">
             <h3><Trash2/>Thùng rác</h3>
             {data.trash.length===0?<p className="muted">Thùng rác đang trống. Người thân bị xóa sẽ nằm ở đây cho tới khi bạn xóa hẳn.</p>

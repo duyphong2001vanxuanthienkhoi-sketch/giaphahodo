@@ -133,3 +133,13 @@ CREATE INDEX IF NOT EXISTS idx_memories_ancestor ON memories(ancestor_id,status)
 CREATE INDEX IF NOT EXISTS idx_attendance_event ON attendance(ancestor_id,event_date);
 CREATE INDEX IF NOT EXISTS idx_photos_ancestor ON photos(ancestor_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_attempted ON mail_deliveries(attempted_at);
+CREATE TABLE IF NOT EXISTS audit_log (
+  id TEXT PRIMARY KEY,
+  family_id TEXT,
+  action TEXT NOT NULL,
+  actor TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
+  ip_hash TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'utc','YYYY-MM-DD HH24:MI:SS')
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);

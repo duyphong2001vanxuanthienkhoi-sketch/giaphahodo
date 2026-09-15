@@ -24,6 +24,7 @@ Cội là một web app cho dòng họ: lưu ngày giỗ theo âm lịch Việt 
 - **Lịch đăng ký cho điện thoại**: link `webcal://` riêng cho từng người, kèm báo thức `VALARM` đúng theo cài đặt nhắc. Xem mục bên dưới.
 - Thùng rác: xóa người thân là ẩn đi trước, khôi phục được, chỉ mất hẳn khi xóa lần hai.
 - Xuất toàn bộ dữ liệu dòng họ ra JSON cho gia đình tự giữ.
+- **Nhật ký quản trị**: ghi lại tài khoản mới, lần đăng nhập (kể cả lần trượt), lời mời, đổi quyền và thu hồi truy cập. Xem trong *Tài khoản → Dữ liệu & thùng rác*. Đây là **bảng trong cơ sở dữ liệu chứ không phải tệp `.log`** — nền serverless có đĩa chỉ đọc nên không ghi tệp được. Địa chỉ IP lưu dưới dạng băm; bản ghi quá một năm được dọn tự động.
 - Cài được lên màn hình chính điện thoại: có `manifest.webmanifest`, bộ icon, `apple-touch-icon` và service worker.
 - Chế độ dữ liệu mẫu trong development để xem giao diện nhanh; không gửi email thật.
 - WebMCP (feature-detect): expose thao tác xem ngày giỗ và lưu cài đặt nhắc lịch cho tác nhân hỗ trợ.

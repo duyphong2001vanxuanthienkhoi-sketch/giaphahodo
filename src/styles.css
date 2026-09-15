@@ -200,3 +200,15 @@
   .person-section{padding:20px}
   .photo-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
 }
+
+/* ===== Nhật ký quản trị ===== */
+.audit-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:460px;overflow-y:auto}
+.audit-row{display:flex;align-items:center;gap:12px;padding:10px 13px;border:1px solid var(--border);border-radius:9px;background:#212a1e}
+.audit-row>div{flex:1;min-width:0}
+.audit-row strong{display:block;font-size:.8rem;font-weight:500;word-break:break-all}
+.audit-row span{display:block;font-size:.72rem;color:var(--muted);line-height:1.7}
+.audit-row small{font-size:.68rem;color:#7d8672;white-space:nowrap;flex-shrink:0}
+.audit-tag{flex-shrink:0;font-size:.64rem;padding:4px 9px;border-radius:20px;background:#2c3626;color:#a8bf8e;letter-spacing:.3px}
+.audit-tag.tai-khoan-moi{background:#333a23;color:var(--gold)}
+.audit-tag.dang-nhap-that-bai,.audit-tag.thu-hoi-truy-cap{background:#3a2c27;color:var(--red)}
+@media(max-width:560px){.audit-row{flex-wrap:wrap}.audit-row small{width:100%}}
