@@ -507,3 +507,16 @@ test('Quy đổi báo thức sang chuỗi thời lượng iCalendar', () => {
   assert.equal(alarmTrigger(1,0,30),'-PT23H30M');
   assert.equal(alarmTrigger(30,21,15),'-P29DT2H45M');
 });
+
+test('Giao diện đổi theo giờ Việt Nam, không theo giờ máy', async () => {
+  const { theoGio, gioVietNam } = await import('../src/theme.js');
+  // Các mốc ghi theo UTC; +7 giờ ra giờ Việt Nam.
+  const luc = utc => new Date(utc);
+  assert.equal(gioVietNam(luc('2026-09-15T23:00:00Z')), 6, 'UTC 23h là 6h sáng hôm sau ở Việt Nam');
+  assert.equal(theoGio(luc('2026-09-15T22:59:00Z')), 'dark', 'trước 6h sáng vẫn là tối');
+  assert.equal(theoGio(luc('2026-09-15T23:00:00Z')), 'light', 'đúng 6h sáng thì chuyển sáng');
+  assert.equal(theoGio(luc('2026-09-16T05:00:00Z')), 'light', 'giữa trưa là sáng');
+  assert.equal(theoGio(luc('2026-09-16T10:59:00Z')), 'light', 'trước 18h vẫn sáng');
+  assert.equal(theoGio(luc('2026-09-16T11:00:00Z')), 'dark', 'đúng 18h thì chuyển tối');
+  assert.equal(theoGio(luc('2026-09-16T16:00:00Z')), 'dark', 'khuya là tối');
+});

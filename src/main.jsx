@@ -12,6 +12,10 @@ import '@fontsource/lora/latin-400-italic.css';
 import '@fontsource/lora/vietnamese-400-italic.css';
 import App from './App.jsx';
 import './styles.css';
+import { apDung } from './theme.js';
+
+// Đặt giao diện trước khi React dựng cây, để không loé một nhịp sai màu rồi mới đổi.
+apDung();
 
 class ErrorBoundary extends React.Component {
   state = { error: false };
