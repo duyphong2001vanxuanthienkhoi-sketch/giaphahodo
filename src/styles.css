@@ -240,7 +240,21 @@
 .day-label.sinhnhat{color:#8fb6d6}
 .day-label.viecho{color:#9db287}
 .day-label.more{color:var(--muted)}
-@media(max-width:760px){.day-labels{display:none}}
+/* Ô ngày hẹp thì giấu tên trong ô đi và đưa xuống danh sách dưới lịch, và ngược lại. */
+.month-agenda{display:none}
+@media(max-width:760px){
+  .day-labels{display:none}
+  .month-agenda{display:block;list-style:none;margin:14px 0 0;padding:14px 0 0;border-top:1px solid var(--border)}
+  .month-agenda.empty{padding:14px 2px 0;color:var(--muted);font-size:.8125rem}
+  .agenda-row{display:flex;gap:12px;width:100%;align-items:flex-start;text-align:left;padding:9px 8px;border:0;border-radius:9px;background:transparent;min-height:44px}
+  .agenda-row.selected{background:var(--raised)}
+  .agenda-date{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:38px;line-height:1.25}
+  .agenda-date b{font-size:1.0625rem;font-weight:500;color:var(--gold-light)}
+  .agenda-date small{font-size:.625rem;color:var(--muted);white-space:nowrap}
+  .agenda-what{display:flex;flex-direction:column;gap:3px;min-width:0;padding-top:1px}
+  .agenda-item{display:flex;align-items:center;gap:7px;font-size:.8125rem;line-height:1.45}
+  .agenda-item .dot{flex-shrink:0}
+}
 
 /* ===== Màn đăng ký ===== */
 .register-done{text-align:center}

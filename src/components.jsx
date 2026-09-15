@@ -53,7 +53,23 @@ export function Calendar({year,month,events,observances=[],birthdays=[],today,se
         {!compact&&list.length>0&&<span className="day-labels">{list.slice(0,2).map((x,i)=><span key={i} className={`day-label ${x.kind}`}>{x.label}</span>)}{list.length>2&&<span className="day-label more">+{list.length-2}</span>}</span>}
       </button>;})}</div>
     <div className="calendar-legend"><span><i className="gio"/>Ngày giỗ</span><span><i className="sinhnhat"/>Sinh nhật</span><span><i className="viecho"/>Việc họ</span>{!compact&&<span>Số nhỏ: ngày âm · n: tháng nhuận</span>}</div>
+    {!compact&&<MonthAgenda year={year} month={month} byDate={byDate} selected={selected} onSelect={onSelect}/>}
   </section>;
+}
+
+/** Trên điện thoại một ô ngày chỉ rộng chừng 40px, không tài nào nhét vừa một cái tên,
+ * nên tên bị ẩn đi và muốn biết giỗ ai thì phải bấm vào từng ngày một. Danh sách này
+ * nằm ngay dưới lịch, chỉ hiện ở màn hình hẹp, để nhìn một lượt là biết cả tháng có
+ * những ngày gì. Màn hình rộng thì tên đã nằm sẵn trong ô nên không cần tới nó. */
+function MonthAgenda({year,month,byDate,selected,onSelect}) {
+  const prefix=`${year}-${pad(month)}`;
+  const days=[...byDate.entries()].filter(([date])=>date.startsWith(prefix)).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!days.length)return <p className="month-agenda empty">Tháng này không có ngày giỗ hay việc họ nào.</p>;
+  return <ul className="month-agenda">{days.map(([date,list])=>
+    <li key={date}><button className={`agenda-row ${date===selected?'selected':''}`} onClick={()=>onSelect(date)}>
+      <span className="agenda-date"><b>{Number(date.slice(-2))}</b><small>{lunarLabel(date).replace(' âm lịch','')} âm</small></span>
+      <span className="agenda-what">{list.map((x,i)=><span key={i} className="agenda-item"><i className={`dot ${x.kind}`}/>{x.full}</span>)}</span>
+    </button></li>)}</ul>;
 }
 export function PageHeading({eyebrow,title,description,action}) {return <header className="page-heading"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description&&<p>{description}</p>}</div>{action}</header>;}
 export function AddButton({onClick}) {return <Button variant="primary" onClick={onClick}><Plus/>Thêm ngày giỗ</Button>;}
