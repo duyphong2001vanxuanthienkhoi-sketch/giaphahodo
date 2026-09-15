@@ -103,7 +103,8 @@ export async function createApp(config, options = {}) {
   app.get('/api/config', async (req,res) => res.json({demo:config.demo,mailPreview:!config.production && config.mailDriver==='preview',familyName:config.familyName,
     // Chỉ cho biết đường nào đang bật, không bao giờ lộ giá trị — màn đăng nhập
     // dùng để chọn đúng chế độ mặc định, và giúp chẩn đoán khi cấu hình thiếu.
-    passwordLogin:!!config.adminPassword, emailLogin:config.mailDriver==='smtp'||config.mailDriver==='brevo', publicView:config.publicView}));
+    passwordLogin:!!config.adminPassword, emailLogin:config.mailDriver==='smtp'||config.mailDriver==='brevo', publicView:config.publicView,
+    mailDriver:config.mailDriver, mailReady:config.mailDriver==='brevo'?!!(config.brevoKey&&config.brevoFrom):config.mailDriver==='smtp'?!!process.env.SMTP_HOST:true}));
   app.get('/api/invitation', async (req,res) => {
     const invite = await getInvite(req.query.token);
     if (!invite) throw new AppError(404,'Lời mời đã hết hạn hoặc không còn hiệu lực. Hãy xin link mời mới.');
