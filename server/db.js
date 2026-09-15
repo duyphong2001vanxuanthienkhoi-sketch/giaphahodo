@@ -22,6 +22,15 @@ const additions = [
   // không theo bảng chữ cái, và nhiều người trong họ chỉ biết năm sinh chứ không biết
   // ngày, nên không thể xếp bằng ngày sinh. 0 nghĩa là chưa biết, xếp xuống cuối.
   ['ancestors', 'birth_order', 'INTEGER NOT NULL DEFAULT 0'],
+  // Ảnh do người trong họ góp phải được quản lý duyệt rồi mới hiện ra cho cả nhà và cho
+  // khách; ảnh do chính quản lý tải lên thì hiện ngay. Mặc định 'approved' để những ảnh
+  // đã có từ trước — vốn chỉ quản lý mới tải được — không bỗng dưng biến mất.
+  ['photos', 'status', "TEXT NOT NULL DEFAULT 'approved'"],
+  // Ảnh đại diện của tài khoản. photos.ancestor_id là NOT NULL nên ảnh này không nằm
+  // chung bảng được; ba cột đủ để dùng lại y nguyên kho lưu trữ của ảnh gia phả.
+  ['users', 'avatar_id', "TEXT NOT NULL DEFAULT ''"],
+  ['users', 'avatar_mime', "TEXT NOT NULL DEFAULT ''"],
+  ['users', 'avatar_url', "TEXT NOT NULL DEFAULT ''"],
   ['families', 'observances', `TEXT NOT NULL DEFAULT '${JSON.stringify(DEFAULT_OBSERVANCES)}'`],
 ];
 

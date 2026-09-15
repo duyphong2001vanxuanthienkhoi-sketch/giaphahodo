@@ -115,7 +115,6 @@ test('Album ảnh: thêm nhiều ảnh, chọn ảnh đại diện, xóa thì t�
   const people = (await f.request('/bootstrap',{cookie:admin})).data.ancestors;
   const person = people[0], other = people[1];
 
-  assert.equal((await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:member,body:photoBody})).status,403);
   const first = await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:admin,body:{...photoBody,caption:'Cụ chụp năm 1990'}});
   assert.equal(first.status,201);
   assert.equal(first.data.portrait,true,'ảnh đầu tiên tự thành ảnh đại diện');
@@ -519,4 +518,62 @@ test('Giao diện đổi theo giờ Việt Nam, không theo giờ máy', async (
   assert.equal(theoGio(luc('2026-09-16T10:59:00Z')), 'light', 'trước 18h vẫn sáng');
   assert.equal(theoGio(luc('2026-09-16T11:00:00Z')), 'dark', 'đúng 18h thì chuyển tối');
   assert.equal(theoGio(luc('2026-09-16T16:00:00Z')), 'dark', 'khuya là tối');
+});
+
+test('Người trong họ góp được ảnh, nhưng phải duyệt rồi ảnh mới ra khỏi nhà', async t => {
+  const f = await fixture(t), admin = await f.loginDemo(), member = await f.loginDemo('member');
+  const person = (await f.request('/bootstrap',{cookie:admin})).data.ancestors[0];
+
+  const gop = await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:member,body:{...photoBody,caption:'Ảnh bác gửi'}});
+  assert.equal(gop.status,201,'thành viên góp được ảnh');
+  assert.equal(gop.data.status,'pending','ảnh người khác góp phải chờ duyệt');
+  assert.equal(gop.data.portrait,false,'ảnh chờ duyệt không được chiếm chỗ ảnh đại diện');
+
+  // Chưa duyệt thì khách không thấy, và người ngoài đoán đúng id cũng không mở được.
+  const khach = await f.request('/public');
+  assert.equal(khach.data.photos.length,0,'bản công khai không kèm ảnh chờ duyệt');
+  assert.equal((await f.request('/photos/'+gop.data.id)).status,404,'khách không mở được ảnh chờ duyệt');
+  const nguoiKhac = await f.loginDemo('member');
+  assert.equal((await f.request('/photos/'+gop.data.id,{cookie:nguoiKhac})).status,200,'cùng tài khoản demo nên vẫn là người góp');
+
+  // Người góp và người quản lý thì thấy, để một bên biết đã gửi và một bên còn duyệt.
+  assert.equal((await f.request('/photos/'+gop.data.id,{cookie:member})).status,200);
+  assert.equal((await f.request('/photos/'+gop.data.id,{cookie:admin})).status,200);
+  assert.equal((await f.request('/bootstrap',{cookie:admin})).data.photos.filter(p=>p.status==='pending').length,1);
+
+  // Ảnh chờ duyệt không được đặt làm ảnh đại diện, kể cả bởi quản lý.
+  assert.equal((await f.request(`/ancestors/${person.id}/portrait`,{method:'PUT',cookie:admin,body:{photo_id:gop.data.id}})).status,404);
+
+  assert.equal((await f.request('/photos/'+gop.data.id+'/approve',{method:'POST',cookie:member})).status,403,'thành viên không tự duyệt ảnh của mình');
+  assert.equal((await f.request('/photos/'+gop.data.id+'/approve',{method:'POST',cookie:admin})).status,200);
+  const sau = await f.request('/public');
+  assert.equal(sau.data.photos.length,1,'duyệt xong thì khách thấy');
+  assert.equal((await f.request('/photos/'+gop.data.id)).status,200);
+  assert.equal((await f.request('/bootstrap',{cookie:admin})).data.ancestors.find(a=>a.id===person.id).photo_id,gop.data.id,'ảnh đầu được duyệt thành ảnh đại diện');
+});
+
+test('Ảnh đại diện của tài khoản: tự đặt được, quản lý đặt hộ được, người ngoài thì không', async t => {
+  const f = await fixture(t), admin = await f.loginDemo(), member = await f.loginDemo('member');
+  const boot = (await f.request('/bootstrap',{cookie:admin})).data;
+  const toi = boot.user, nguoiKhac = boot.members.find(m=>m.id!==toi.id);
+
+  assert.equal(toi.has_avatar,false,'chưa đặt thì chưa có ảnh');
+  assert.equal((await f.request(`/members/${toi.id}/avatar`,{cookie:admin})).status,404);
+
+  assert.equal((await f.request(`/members/${toi.id}/avatar`,{method:'PUT',cookie:admin,body:{data:photoBody.data}})).status,200);
+  const xem = await f.request(`/members/${toi.id}/avatar`,{cookie:admin});
+  assert.equal(xem.status,200);
+  assert.equal(xem.type,'image/jpeg');
+  assert.ok(xem.data.length>0);
+  assert.equal((await f.request('/bootstrap',{cookie:admin})).data.user.has_avatar,true);
+  assert.ok((await f.request('/bootstrap',{cookie:admin})).data.members.find(m=>m.id===toi.id).avatar_id,'danh sách thành viên biết ai đã có ảnh');
+
+  // Quản lý đặt hộ được cho người khác; thành viên thường thì không.
+  assert.equal((await f.request(`/members/${nguoiKhac.id}/avatar`,{method:'PUT',cookie:admin,body:{data:photoBody.data}})).status,200);
+  assert.equal((await f.request(`/members/${toi.id}/avatar`,{method:'PUT',cookie:member,body:{data:photoBody.data}})).status,403,'thành viên không đổi ảnh người khác');
+
+  // Ảnh không nằm trong bản công khai, và tệp cũ được dọn khi thay ảnh mới.
+  assert.equal(JSON.stringify((await f.request('/public')).data).includes('avatar'),false);
+  assert.equal((await f.request(`/members/${toi.id}/avatar`,{method:'DELETE',cookie:admin})).status,200);
+  assert.equal((await f.request(`/members/${toi.id}/avatar`,{cookie:admin})).status,404);
 });

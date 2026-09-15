@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { LoiNhac } from './icons.jsx';
-import { Bell, ShieldCheck, Save, Landmark, Download, Trash2, RotateCcw, Sparkles, Phone, ScrollText } from 'lucide-react';
+import { Bell, ShieldCheck, Save, Landmark, Download, Trash2, RotateCcw, Sparkles, Phone, ScrollText, ImagePlus } from 'lucide-react';
 import { api } from './api.js';
+import { preparePortrait } from './image.js';
 import { Avatar, Button, Field, PageHeading, Modal } from './components.jsx';
 import CalendarSync from './CalendarSync.jsx';
 import { pad, OBSERVANCES } from '../shared/lunar.js';
@@ -16,13 +17,26 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(null);
   const admin=data.user.role==='admin';
   async function save(e,path,body){e.preventDefault();setBusy(true);setError('');try{await api(path,{method:'PATCH',body});await reload();notify('Đã lưu thay đổi của bạn.');}catch(e){setError(e.message);}finally{setBusy(false);}}
+  // Mã ảnh đi kèm địa chỉ, để đổi ảnh xong trình duyệt không giữ lại ảnh cũ trong bộ nhớ đệm.
+  const [dangTai,setDangTai]=useState(false),[phienAnh,setPhienAnh]=useState(0);
+  const anhCuaToi=data.user.has_avatar?`/api/members/${data.user.id}/avatar?v=${phienAnh}`:null;
+  async function datAnh(file){
+    setDangTai(true);setError('');
+    try{await api(`/members/${data.user.id}/avatar`,{method:'PUT',body:{data:await preparePortrait(file)}});setPhienAnh(n=>n+1);await reload();notify('Đã cập nhật ảnh đại diện.');}
+    catch(e){setError(e.message);}finally{setDangTai(false);}
+  }
+  async function xoaAnh(){
+    setDangTai(true);setError('');
+    try{await api(`/members/${data.user.id}/avatar`,{method:'DELETE'});setPhienAnh(n=>n+1);await reload();notify('Đã gỡ ảnh đại diện.');}
+    catch(e){setError(e.message);}finally{setDangTai(false);}
+  }
   function toggleDay(day){setPrefs(p=>({...p,days:p.days.includes(day)?p.days.filter(x=>x!==day):[...p.days,day]}));}
   function toggleRite(key){setFamily(f=>({...f,observances:f.observances.includes(key)?f.observances.filter(x=>x!==key):[...f.observances,key]}));}
   async function act(){setBusy(true);setError('');try{await api(confirm.path,{method:confirm.method});await reload();setConfirm(null);notify(confirm.done);}catch(e){setError(e.message);}finally{setBusy(false);}}
 
   return <><PageHeading eyebrow="Không gian của bạn" title="Tài khoản & lời nhắc" description="Một vài lựa chọn nhỏ để luôn nhớ đúng ngày."/>
     <div className="account-layout">
-      <aside className="profile-panel"><Avatar name={data.user.name} size="large"/><h2>{data.user.name}</h2><p>{data.user.email}</p><span className="pill"><ShieldCheck/>{admin?'Người quản lý':'Thành viên'}</span><div className="profile-family"><Landmark/><span>{data.family.name}</span></div>
+      <aside className="profile-panel"><Avatar name={data.user.name} src={anhCuaToi} size="large"/><h2>{data.user.name}</h2><p>{data.user.email}</p><span className="pill"><ShieldCheck/>{admin?'Người quản lý':'Thành viên'}</span><div className="profile-family"><Landmark/><span>{data.family.name}</span></div>
         <div className="account-tabs">{[['profile','Thông tin cá nhân'],['reminders','Nhắc lịch & điện thoại'],...(admin?[['family','Thông tin dòng họ'],['data','Dữ liệu & thùng rác']]:[])].map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setError('');}} aria-pressed={tab===id}>{label}</button>)}</div>
       </aside>
       <section className="settings-panel">
@@ -30,6 +44,20 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
 
         {tab==='profile'&&<form onSubmit={e=>save(e,'/profile',profile)}>
           <div className="settings-title"><h2>Thông tin cá nhân</h2><p>Cách tên bạn xuất hiện với các thành viên trong dòng họ.</p></div>
+          {/* Ảnh lưu riêng khỏi biểu mẫu: tải xong là có ngay, không phải bấm Lưu. */}
+          <div className="avatar-row">
+            <Avatar name={data.user.name} src={anhCuaToi} size="large"/>
+            <div>
+              <strong>Ảnh đại diện</strong>
+              <p>Người trong họ nhìn thấy ảnh này ở danh sách thành viên. Khách chưa đăng nhập thì không.</p>
+              <div className="avatar-actions">
+                <label className="button"><ImagePlus/>{dangTai?'Đang tải lên…':data.user.has_avatar?'Đổi ảnh':'Chọn ảnh'}
+                  <input type="file" accept="image/*" hidden disabled={dangTai}
+                    onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)datAnh(f);}}/></label>
+                {data.user.has_avatar&&<Button variant="text" className="danger" disabled={dangTai} onClick={xoaAnh}><Trash2/>Gỡ ảnh</Button>}
+              </div>
+            </div>
+          </div>
           <div className="form-grid">
             <Field label="Họ và tên *" wide><input required minLength={2} maxLength={80} value={profile.name} onChange={e=>setProfile({...profile,name:e.target.value})}/></Field>
             <Field label="Email đăng nhập" wide hint="Email đã được xác minh và dùng để nhận lời nhắc."><input type="email" value={data.user.email} readOnly/></Field>

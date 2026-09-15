@@ -4,8 +4,11 @@ import { X, Sprout, Bell, ArrowUpRight, MapPin, CalendarDays, ChevronLeft, Chevr
 import { monthGrid, solarLabel, lunarLabel, pad, daysBetween } from '../shared/lunar.js';
 
 export function Brand({small=false}) {return <div className={`brand ${small?'small':''}`}><Sprout aria-hidden="true"/><span>đỗ gia.</span></div>;}
-export function Avatar({name,photoId=null,size=''}) {
-  if(photoId)return <span className={`avatar photo ${size}`}><img src={`/api/photos/${photoId}`} alt={`Ảnh ${name}`} loading="lazy"/></span>;
+/** Ảnh của người trong gia phả đi qua photoId; ảnh đại diện của tài khoản đi qua src,
+ * vì hai thứ nằm ở hai bảng khác nhau. Không có ảnh thì lấy chữ cái đầu của tên. */
+export function Avatar({name,photoId=null,src=null,size=''}) {
+  const url=src||(photoId?`/api/photos/${photoId}`:null);
+  if(url)return <span className={`avatar photo ${size}`}><img src={url} alt={`Ảnh ${name}`} loading="lazy"/></span>;
   return <span className={`avatar ${size}`} aria-hidden="true">{name.trim().split(/\s+/).slice(-2).map(s=>s[0]).join('').toUpperCase()}</span>;
 }
 export function Button({children,variant='',className='',...props}) {return <button className={`button ${variant} ${className}`} type="button" {...props}>{children}</button>;}
@@ -65,8 +68,8 @@ export function Calendar({year,month,events,observances=[],birthdays=[],today,se
 function MonthAgenda({year,month,byDate,selected,onSelect}) {
   const prefix=`${year}-${pad(month)}`;
   const days=[...byDate.entries()].filter(([date])=>date.startsWith(prefix)).sort((a,b)=>a[0].localeCompare(b[0]));
-  if(!days.length)return <p className="month-agenda empty">Tháng này không có ngày giỗ hay việc họ nào.</p>;
-  return <ul className="month-agenda">{days.map(([date,list])=>
+  if(!days.length)return <div className="month-agenda"><p className="agenda-title">Trong tháng {month}</p><p className="agenda-empty">Tháng này không có ngày giỗ hay việc họ nào.</p></div>;
+  return <ul className="month-agenda"><li className="agenda-title">Trong tháng {month} có</li>{days.map(([date,list])=>
     <li key={date}><button className={`agenda-row ${date===selected?'selected':''}`} onClick={()=>onSelect(date)}>
       <span className="agenda-date"><b>{Number(date.slice(-2))}</b><small>{lunarLabel(date).replace(' âm lịch','')} âm</small></span>
       <span className="agenda-what">{list.map((x,i)=><span key={i} className="agenda-item"><i className={`dot ${x.kind}`}/>{x.full}</span>)}</span>

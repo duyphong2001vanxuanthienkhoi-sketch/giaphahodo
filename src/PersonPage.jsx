@@ -89,12 +89,17 @@ export default function PersonPage({ person, events, data, admin, guest = false,
       <div className="person-main">
         <section className="person-section">
           <div className="section-bar"><h2><Images/>Album ảnh{photos.length?` · ${photos.length}`:''}</h2>
-            {admin&&<label className="button"><ImagePlus/>{uploading?'Đang tải lên…':'Thêm ảnh'}<input type="file" accept="image/*" multiple hidden disabled={uploading} onChange={addPhotos}/></label>}</div>
+            {!guest&&<label className="button"><ImagePlus/>{uploading?'Đang tải lên…':admin?'Thêm ảnh':'Góp ảnh'}<input type="file" accept="image/*" multiple hidden disabled={uploading} onChange={addPhotos}/></label>}</div>
           {photos.length===0
-            ? <p className="muted">{admin?'Chưa có ảnh nào. Thêm ảnh để con cháu nhớ mặt người.':'Gia đình chưa thêm ảnh về người thân này.'}</p>
+            ? <p className="muted">{guest?'Gia đình chưa thêm ảnh về người thân này.':admin?'Chưa có ảnh nào. Thêm ảnh để con cháu nhớ mặt người.':'Chưa có ảnh nào. Bạn có ảnh thì góp vào, người quản lý duyệt xong cả họ sẽ thấy.'}</p>
             : <div className="photo-grid">{photos.map(photo=><figure key={photo.id} className={photo.id===person.photo_id?'portrait':''}>
                 <button onClick={()=>setViewing(photo)} aria-label={photo.caption||`Xem ảnh của ${person.name}`}><img src={`/api/photos/${photo.id}`} alt={photo.caption||`Ảnh ${person.name}`} loading="lazy"/></button>
                 {photo.id===person.photo_id&&<span className="portrait-flag"><Star/>Ảnh đại diện</span>}
+                {/* Ảnh người trong họ góp còn chờ duyệt: chỉ quản lý và chính người góp
+                    thấy được, nên phải nói rõ nó chưa ra tới cả họ. */}
+                {photo.status==='pending'&&<span className="portrait-flag cho-duyet"><Clock3/>{admin?'Chờ bạn duyệt':'Đang chờ duyệt'}</span>}
+                {photo.status==='pending'&&admin&&<Button variant="primary" className="duyet-anh" disabled={busy}
+                  onClick={()=>act(()=>api('/photos/'+photo.id+'/approve',{method:'POST'}),'Đã duyệt ảnh. Cả họ đã xem được.')}><Check/>Duyệt ảnh</Button>}
                 {photo.caption&&<figcaption>{photo.caption}</figcaption>}
               </figure>)}</div>}
         </section>
