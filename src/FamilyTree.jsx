@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, Users } from 'lucide-react';
+import { ChevronRight, Users, Minimize2, Maximize2 } from 'lucide-react';
 import { Avatar } from './components.jsx';
 import { pad } from '../shared/lunar.js';
 
@@ -12,9 +12,22 @@ import { pad } from '../shared/lunar.js';
  * trong hai người cũng đều treo dưới mắt đó. */
 export default function FamilyTree({ people, onOpen }) {
   const tree = useMemo(() => build(people), [people]);
+  // null là mặc định (mở tới đời cháu), false là chỉ mở đời đầu để nhìn cả họ trong một
+  // màn hình, true là mở hết. Đổi `lan` thì các nhánh phải quên trạng thái đang giữ,
+  // nên chúng được gắn khoá mới để dựng lại từ đầu.
+  const [lan, setLan] = useState(null), [khoa, setKhoa] = useState(0);
+  const spread = value => { setLan(value); setKhoa(n => n + 1); };
   if (!tree.roots.length) return null;
-  return <div className="family-tree" role="tree" aria-label="Sơ đồ gia phả">
-    {tree.roots.map(node => <Branch key={node.id} node={node} tree={tree} depth={0} onOpen={onOpen}/>)}
+  const thuGon = lan === false;
+  return <div className="family-tree">
+    <div className="tree-tools">
+      <button onClick={() => spread(thuGon ? true : false)}>
+        {thuGon ? <><Maximize2/>Mở cả cây</> : <><Minimize2/>Thu gọn cả cây</>}
+      </button>
+    </div>
+    <div role="tree" aria-label="Sơ đồ gia phả">
+      {tree.roots.map(node => <Branch key={`${node.id}:${khoa}`} node={node} tree={tree} depth={0} lan={lan} onOpen={onOpen}/>)}
+    </div>
   </div>;
 }
 
@@ -57,10 +70,11 @@ function countBelow(node, tree) {
   return children.reduce((total, child) => total + 1 + countBelow(child, tree), 0);
 }
 
-function Branch({ node, tree, depth, onOpen }) {
+function Branch({ node, tree, depth, lan, onOpen }) {
   const children = tree.childrenOf(node);
-  // Hai đời đầu mở sẵn; sâu hơn thì gập lại để cả cây còn nhìn được một lượt.
-  const [open, setOpen] = useState(depth < 2);
+  // Mặc định mở hai đời đầu; sâu hơn thì gập lại để cả cây còn nhìn được một lượt.
+  // "Thu gọn cả cây" chỉ để lại đời đầu, nên cả họ nằm gọn trong một màn hình.
+  const [open, setOpen] = useState(lan === null ? depth < 2 : lan === false ? depth < 1 : true);
   const partner = tree.partnerOf.get(node.id);
   const below = children.length ? countBelow(node, tree) : 0;
   return <div className={`tree-branch depth-${Math.min(depth, 4)}`} role="treeitem" aria-expanded={children.length ? open : undefined}>
@@ -69,7 +83,9 @@ function Branch({ node, tree, depth, onOpen }) {
         ? <button className={`tree-toggle ${open ? 'open' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open}
             aria-label={`${open ? 'Thu gọn' : 'Mở'} nhánh ${node.name}, ${below} người`}><ChevronRight/></button>
         : <span className="tree-toggle empty" aria-hidden="true"/>}
-      <div className="tree-couple">
+      {/* Vợ chồng nằm trong một khung có chung đường viền, ngăn nhau bằng một nét mảnh:
+          hai ô rời nhau thì mắt đọc ra hai người, một khung thì đọc ra một cặp. */}
+      <div className={`tree-couple ${partner ? 'paired' : ''}`}>
         <Chip person={node} onOpen={onOpen}/>
         {partner && <Chip person={partner} onOpen={onOpen} married/>}
       </div>
@@ -78,7 +94,7 @@ function Branch({ node, tree, depth, onOpen }) {
       <Users/>{below} người trong nhánh này
     </button>}
     {children.length > 0 && open && <div className="tree-children">
-      {children.map(child => <Branch key={child.id} node={child} tree={tree} depth={depth + 1} onOpen={onOpen}/>)}
+      {children.map(child => <Branch key={child.id} node={child} tree={tree} depth={depth + 1} lan={lan} onOpen={onOpen}/>)}
     </div>}
   </div>;
 }
@@ -93,7 +109,7 @@ function Chip({ person, onOpen, married = false }) {
   const note = [married ? 'vợ/chồng' : '', ...facts].filter(Boolean).join(' · ');
   return <button className={`tree-chip ${person.living ? 'living' : 'departed'} ${married ? 'married-in' : ''}`}
     onClick={() => onOpen(person)} title={person.name}>
-    <Avatar name={person.name} photoId={person.photo_id}/>
+    <span className="tree-face"><Avatar name={person.name} photoId={person.photo_id}/></span>
     <span className="tree-chip-text"><strong>{person.name}</strong><small>{note}</small></span>
   </button>;
 }

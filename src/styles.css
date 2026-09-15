@@ -261,43 +261,88 @@
 .register-done .modal-copy{margin:14px 0 20px}
 
 /* ===== Sơ đồ gia phả =====
-   Cây dựng theo chiều dọc, đời sau thụt vào và có đường nối bên trái. Ba đời với chín
-   nhánh con thì một cây trải ngang không thể vừa màn hình điện thoại, mà cả họ xem
-   bằng điện thoại. Mỗi mắt là một ô chữ nhật đầy chiều ngang, không phải thẻ vuông. */
-.tree-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:0 0 14px;font-size:.8125rem;color:var(--muted);line-height:1.5}
+   Cây dựng theo chiều dọc, đời sau thụt vào, vì ba đời với chín nhánh con thì một cây
+   trải ngang không thể vừa màn hình điện thoại, mà cả họ thì xem bằng điện thoại.
+
+   Tầng bậc phải nhìn ra ngay, nên nó được nói bằng ba thứ cùng lúc chứ không chỉ bằng
+   thụt lề: đường nối cong nhìn thấy được, cây thon dần qua từng đời, và chín nhánh con
+   tách hẳn nhau ra. Hai mươi bốn cái thẻ giống hệt nhau thì mắt không bám vào đâu được. */
+.tree-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 0 12px;font-size:.8125rem;color:var(--muted);line-height:1.5}
 .tree-legend>span{display:inline-flex;align-items:center;gap:7px}
 .tree-legend i{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .tree-legend i.departed{background:var(--gold)}
 .tree-legend i.living{background:#93b06d}
-.family-tree{border:1px solid var(--border);border-radius:14px;background:radial-gradient(ellipse at top,#27301f80,transparent 70%),#1b2118;padding:18px 16px}
+
+.family-tree{--rail:#5b6a4c;--gap:11px;--elbow:26px;--indent:22px;
+  border:1px solid var(--border);border-radius:14px;padding:18px 16px 20px;
+  background:radial-gradient(ellipse at 50% -10%,#2b351f66,transparent 62%),#1b2118}
+
 .tree-row{display:flex;align-items:flex-start;gap:2px}
-.tree-toggle{width:30px;min-height:44px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--muted);border-radius:8px;flex-shrink:0;padding:0}
+.tree-toggle{width:30px;min-height:46px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--muted);border-radius:8px;flex-shrink:0;padding:0}
 .tree-toggle:hover{color:var(--gold);background:var(--raised)}
 .tree-toggle svg{width:17px;height:17px;transition:transform .18s}
 .tree-toggle.open svg{transform:rotate(90deg)}
 .tree-toggle.empty{pointer-events:none}
-.tree-couple{display:flex;flex-wrap:wrap;gap:6px 10px;flex:1;min-width:0;padding:3px 0}
-.tree-chip{display:flex;align-items:center;gap:10px;flex:1 1 215px;min-width:0;text-align:left;padding:8px 12px 8px 9px;border:1px solid #49553a;border-left-width:3px;border-radius:10px;background:#262f20;min-height:46px}
-.tree-chip:hover{border-color:var(--gold);background:#2e3827}
+
+/* Một người đứng riêng thì chính cái thẻ mang đường viền; vợ chồng thì khung ngoài mang,
+   hai người ngăn nhau bằng một nét mảnh — để mắt đọc ra một cặp chứ không phải hai người. */
+.tree-couple{display:flex;flex-direction:column;flex:1;min-width:0;margin:2px 0}
+.tree-couple.paired{border:1px solid #4d5940;border-radius:11px;background:#262f20;overflow:hidden}
+.tree-branch.depth-0>.tree-row>.tree-couple{border-color:#6a6446;background:linear-gradient(160deg,#2f3623,#262f20 62%)}
+.tree-chip{display:flex;align-items:center;gap:10px;width:100%;min-width:0;text-align:left;
+  padding:9px 12px 9px 10px;border:1px solid #49553a;border-left-width:3px;border-radius:11px;
+  background:#262f20;min-height:48px}
+.tree-couple.paired .tree-chip{border:0;border-left:3px solid transparent;border-radius:0;background:transparent}
+.tree-couple.paired .tree-chip+.tree-chip{border-top:1px solid #3d4934}
+.tree-chip:hover{border-color:var(--gold);background:#2f3a27}
+.tree-couple.paired:hover{border-color:var(--gold)}
+.tree-couple.paired .tree-chip:hover{background:#2f3a27}
 .tree-chip.departed{border-left-color:var(--gold)}
 .tree-chip.living{border-left-color:#93b06d}
-.tree-chip.married-in{border-style:dashed;border-left-style:solid}
-.tree-chip .avatar{width:32px;height:32px;font-size:.6875rem;flex-shrink:0}
+
+.tree-face{display:flex;flex-shrink:0;border-radius:50%;padding:2px;border:1px solid transparent}
+.tree-chip.departed .tree-face{border-color:#6d6142}
+.tree-chip.living .tree-face{border-color:#55693c}
+.tree-chip .avatar{width:30px;height:30px;font-size:.6875rem}
 .tree-chip-text{display:flex;flex-direction:column;min-width:0;gap:2px}
 .tree-chip-text strong{font-family:'Lora',serif;font-size:.9375rem;font-weight:400;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tree-chip-text small{font-size:.75rem;color:var(--muted);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tree-children{margin-left:15px;padding-left:15px;border-left:1px solid #46523a}
-.tree-branch>.tree-children>.tree-branch{position:relative}
-.tree-branch>.tree-children>.tree-branch:before{content:'';position:absolute;left:-15px;top:25px;width:11px;height:1px;background:#46523a}
-.tree-more{display:flex;align-items:center;gap:8px;margin:2px 0 6px 32px;padding:7px 12px;border:1px dashed #49553a;border-radius:9px;background:transparent;color:var(--muted);font-size:.78125rem;min-height:38px}
+
+/* Cây thật thì gốc to, cành nhỏ dần. Chỉ chỉnh đúng mắt của nhánh, không chỉnh cả
+   đàn con bên dưới, nên dùng "> .tree-row". */
+.tree-branch.depth-0>.tree-row .tree-chip{min-height:54px;padding-top:11px;padding-bottom:11px}
+.tree-branch.depth-0>.tree-row .tree-chip .avatar{width:36px;height:36px;font-size:.78125rem}
+.tree-branch.depth-0>.tree-row .tree-chip-text strong{font-size:1.0625rem}
+.tree-branch.depth-2>.tree-row .tree-chip{min-height:44px;padding-top:7px;padding-bottom:7px}
+.tree-branch.depth-2>.tree-row .tree-chip .avatar{width:26px;height:26px;font-size:.6875rem}
+.tree-branch.depth-2>.tree-row .tree-chip-text strong{font-size:.875rem}
+
+/* Đường nối: mỗi người con tự vẽ một khuỷu cong từ nét dọc của cha mẹ sang thẻ của mình,
+   rồi nối tiếp nét dọc xuống cho các em phía dưới. Người con cuối không vẽ nét tiếp,
+   nên nét dọc dừng đúng ở đó thay vì thừa ra một đoạn cụt. */
+.tree-children{padding-left:var(--indent);margin-top:var(--gap)}
+.tree-children>.tree-branch{position:relative}
+.tree-children>.tree-branch+.tree-branch{margin-top:var(--gap)}
+.tree-children>.tree-branch::before{content:'';position:absolute;left:calc(var(--indent) / -2);top:0;
+  width:calc(var(--indent) / 2 - 2px);height:var(--elbow);
+  border-left:1px solid var(--rail);border-bottom:1px solid var(--rail);border-bottom-left-radius:10px}
+.tree-children>.tree-branch:not(:last-child)::after{content:'';position:absolute;left:calc(var(--indent) / -2);
+  top:var(--elbow);bottom:calc(var(--gap) * -1);width:1px;background:var(--rail)}
+
+/* Chín nhánh con của một cặp mà xếp sát nhau thì thành một danh sách dài không đầu
+   không cuối; tách thêm ra để mỗi nhà là một khối nhìn thấy được. */
+.tree-branch.depth-0>.tree-children>.tree-branch+.tree-branch{margin-top:calc(var(--gap) * 1.9)}
+.tree-branch.depth-0>.tree-children>.tree-branch:not(:last-child)::after{bottom:calc(var(--gap) * -1.9)}
+
+.tree-more{display:inline-flex;align-items:center;gap:7px;margin:5px 0 0 30px;padding:5px 11px;
+  border:1px dashed #4d5940;border-radius:20px;background:transparent;color:var(--muted);font-size:.75rem;min-height:32px}
 .tree-more:hover{color:var(--gold);border-color:var(--gold)}
 .tree-more svg{width:15px;height:15px}
+
 @media(max-width:560px){
-  .family-tree{padding:14px 10px}
-  .tree-children{margin-left:10px;padding-left:11px}
-  .tree-branch>.tree-children>.tree-branch:before{left:-11px;width:8px}
+  .family-tree{--indent:20px;padding:14px 11px 16px}
   .tree-toggle{width:26px}
-  .tree-chip{flex-basis:100%;padding:8px 10px 8px 8px}
+  .tree-chip{padding:9px 10px 9px 9px}
   .tree-more{margin-left:28px}
 }
 
@@ -325,3 +370,14 @@
 .living-contact .living-phone{flex:1 1 auto;min-width:0}
 .living-zalo{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-height:38px;padding:8px 14px;border:1px solid #4a5440;border-radius:8px;background:var(--surface);color:var(--gold);font-size:.8125rem;font-weight:500;text-decoration:none}
 .living-zalo:hover{border-color:var(--gold);background:var(--raised)}
+
+/* Chín nhánh con thì "thu gọn cả cây" là cách duy nhất nhìn được cả họ trong một màn
+   hình điện thoại; nút nằm ngay trong khung cây chứ không lẫn vào thanh công cụ trang. */
+.tree-tools{display:flex;justify-content:flex-end;margin:-2px 0 10px}
+.tree-tools button{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:7px 12px;border:1px solid #4d5940;border-radius:8px;background:transparent;color:var(--muted);font-size:.78125rem}
+.tree-tools button:hover{color:var(--gold);border-color:var(--gold)}
+.tree-tools svg{width:15px;height:15px}
+
+/* Màn hình rộng: một cái tên nằm giữa một ô dài cả nghìn pixel thì loãng, mà cây cũng
+   khó theo vì mắt phải quét ngang. Chặn bề ngang lại, để đường nối làm việc của nó. */
+@media(min-width:720px){ .tree-couple{max-width:430px} }
