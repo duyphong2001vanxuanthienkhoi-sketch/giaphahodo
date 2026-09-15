@@ -125,7 +125,13 @@ export async function createApp(config, options = {}) {
       await db.run('DELETE FROM otp_challenges WHERE email=? OR expires_at<?', email,Date.now());
       await db.run('INSERT INTO otp_challenges(id,email,code_hash,invite_hash,expires_at) VALUES(?,?,?,?,?)', id,email,otpHash(config.secret,id,code),invite?.token_hash || null,Date.now()+10*60000);
       try { await mailer.send({to:email,subject:'Mã đăng nhập Cội',text:`Mã xác nhận của bạn là ${code}.\nMã có hiệu lực 10 phút và chỉ dùng một lần.\nKhông chia sẻ mã này cho người khác.\n\nNếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này.`}); }
-      catch { await db.run('DELETE FROM otp_challenges WHERE id=?', id); throw new AppError(503,'Chưa gửi được mã xác nhận. Vui lòng thử lại sau.'); }
+      catch (error) {
+        // Ghi lý do thật ra log: người quản lý cần biết là sai khóa, sai địa chỉ gửi
+        // hay nhà cung cấp từ chối — chứ 503 trần thì không lần ra được.
+        console.error('[Cội] Không gửi được mã đăng nhập:', error.message);
+        await db.run('DELETE FROM otp_challenges WHERE id=?', id);
+        throw new AppError(503,'Chưa gửi được mã xác nhận. Vui lòng thử lại sau.');
+      }
     }
     res.json({challengeId:id,message:'Nếu email đã được mời vào dòng họ, bạn sẽ nhận được mã xác nhận.'});
   });
