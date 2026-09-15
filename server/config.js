@@ -26,7 +26,7 @@ export function getConfig(overrides = {}) {
     ...overrides,
   };
   if (config.production) {
-    if (config.secret.length < 32) throw new Error('APP_SECRET phải có ít nhất 32 ký tự.');
+    if (config.secret.length < 32) throw new Error(`APP_SECRET phải có ít nhất 32 ký tự (máy chủ đang đọc được ${config.secret.length}).`);
     if (!config.appUrl.startsWith('https://')) throw new Error('APP_URL phải dùng HTTPS khi chạy production.');
     if (config.demo) throw new Error('Không bật tài khoản dùng thử trong production.');
     if (config.mailDriver !== 'smtp') throw new Error('Cần MAIL_DRIVER=smtp để gửi mã đăng nhập thật.');

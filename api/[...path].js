@@ -5,6 +5,10 @@ import { createApp } from '../server/app.js';
 // per instance rather than on every request.
 let ready;
 
+// Names only, never values: enough to see which setting is missing without printing it.
+const REQUIRED = ['APP_URL', 'APP_SECRET', 'ADMIN_EMAIL', 'MAIL_DRIVER', 'SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'DATABASE_URL', 'BLOB_READ_WRITE_TOKEN', 'CRON_SECRET'];
+const inventory = () => Object.fromEntries(REQUIRED.map(name => [name, process.env[name] ? `có (${process.env[name].length} ký tự)` : 'THIẾU']));
+
 export default async function handler(req, res) {
   try {
     ready ??= createApp(getConfig()).then(context => context.app);
@@ -17,6 +21,9 @@ export default async function handler(req, res) {
     console.error('[Cội] Không khởi động được:', error);
     res.statusCode = 500;
     res.setHeader('content-type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ error: 'Cội chưa khởi động được: ' + (error?.message || String(error)) }));
+    res.end(JSON.stringify({
+      error: 'Cội chưa khởi động được: ' + (error?.message || String(error)),
+      bienMoiTruong: inventory(),
+    }, null, 2));
   }
 }
