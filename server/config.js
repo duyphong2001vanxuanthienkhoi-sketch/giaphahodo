@@ -25,6 +25,11 @@ export function getConfig(overrides = {}) {
     cronSecret: process.env.CRON_SECRET || '',
     ...overrides,
   };
+  // Vercel gives the function a read-only filesystem, so the SQLite fallback cannot
+  // work there. Say so plainly instead of failing later with mkdir ENOENT.
+  if (process.env.VERCEL && !config.databaseUrl) {
+    throw new Error('Trên Vercel bắt buộc khai DATABASE_URL: đĩa của hàm chỉ đọc được nên không dùng SQLite được.');
+  }
   if (config.production) {
     if (config.secret.length < 32) throw new Error(`APP_SECRET phải có ít nhất 32 ký tự (máy chủ đang đọc được ${config.secret.length}).`);
     if (!config.appUrl.startsWith('https://')) throw new Error('APP_URL phải dùng HTTPS khi chạy production.');
