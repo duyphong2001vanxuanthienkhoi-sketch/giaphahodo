@@ -14,6 +14,11 @@ import { occurrences, todayInVietnam, addDays, observanceEvents } from '../share
 const JPEG = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==';
 const photoBody = { data: 'data:image/jpeg;base64,' + JPEG };
 
+// Blob storage is proven separately (write, read back, delete, 404). On the disk driver
+// the test can also prove no orphan file is left behind, so assert that only there.
+const onDisk = !process.env.BLOB_READ_WRITE_TOKEN;
+const assertFiles = (f,n,msg) => { if (onDisk) assert.equal(readdirSync(join(f.dir,'uploads')).length,n,msg); };
+
 async function fixture(t, overrides = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coi-feature-'));
   const outbox = [];
@@ -125,7 +130,7 @@ test('Album ảnh: thêm nhiều ảnh, chọn ảnh đại diện, xóa thì t�
 
   const second = await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:admin,body:photoBody});
   assert.equal(second.data.portrait,false,'ảnh thứ hai không chiếm chỗ ảnh đại diện');
-  assert.equal(readdirSync(join(f.dir,'uploads')).length,2,'album giữ lại cả hai ảnh');
+  assertFiles(f,2,'album giữ lại cả hai ảnh');
 
   let boot = (await f.request('/bootstrap',{cookie:member})).data;
   assert.equal(boot.photos.filter(p=>p.ancestor_id===person.id).length,2);
@@ -142,13 +147,13 @@ test('Album ảnh: thêm nhiều ảnh, chọn ảnh đại diện, xóa thì t�
   assert.equal((await f.request('/photos/'+second.data.id,{method:'DELETE',cookie:admin})).status,200);
   boot = (await f.request('/bootstrap',{cookie:admin})).data;
   assert.equal(boot.ancestors.find(a=>a.id===person.id).photo_id,first.data.id,'xóa ảnh đại diện thì ảnh còn lại lên thay');
-  assert.equal(readdirSync(join(f.dir,'uploads')).length,1);
+  assertFiles(f,1);
 
   assert.equal((await f.request(`/ancestors/${person.id}/photos`,{method:'POST',cookie:admin,body:{data:'data:image/jpeg;base64,'+Buffer.from('<svg onload=alert(1)>').toString('base64')}})).status,400,'tệp không phải ảnh phải bị từ chối');
   assert.equal((await f.request('/photos/'+first.data.id,{method:'DELETE',cookie:admin})).status,200);
   boot = (await f.request('/bootstrap',{cookie:admin})).data;
   assert.equal(boot.ancestors.find(a=>a.id===person.id).photo_id,null);
-  assert.equal(readdirSync(join(f.dir,'uploads')).length,0);
+  assertFiles(f,0);
 });
 
 test('Ảnh của dòng họ khác không xem được', async t => {
@@ -228,7 +233,7 @@ test('Xóa người thân vào thùng rác, khôi phục được, xóa hẳn m�
 
   await f.request('/ancestors/'+person.id,{method:'DELETE',cookie:admin});
   assert.equal((await f.request('/trash/'+person.id,{method:'DELETE',cookie:admin})).status,200);
-  assert.equal(readdirSync(join(f.dir,'uploads')).length,0,'xóa hẳn thì dọn cả ảnh');
+  assertFiles(f,0,'xóa hẳn thì dọn cả ảnh');
   assert.equal((await f.request(`/ancestors/${person.id}/restore`,{method:'POST',cookie:admin})).status,404);
 });
 

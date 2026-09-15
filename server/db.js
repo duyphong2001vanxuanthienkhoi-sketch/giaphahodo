@@ -1,4 +1,3 @@
-import { DatabaseSync } from 'node:sqlite';
 import { Pool, types } from '@neondatabase/serverless';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -55,7 +54,10 @@ function normalise(row) {
   return row;
 }
 
-function sqliteDriver(path) {
+async function sqliteDriver(path) {
+  // Loaded here, not at module scope: the Postgres path must not need node:sqlite,
+  // which only exists unflagged from Node 24.
+  const { DatabaseSync } = await import('node:sqlite');
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const handle = new DatabaseSync(path);
   handle.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
@@ -85,6 +87,10 @@ function postgresDriver(url, schema) {
   // server connections between clients, so a value another client left behind would
   // otherwise stick and point this app at a schema that may not even exist.
   pool.on('connect', client => client.query(`SET search_path TO ${schema || 'public'}`));
+  // An idle connection dropped by the pooler emits 'error' on the pool. With no listener
+  // Node treats it as unhandled and kills the process, so a long-running Cội would die
+  // of a connection it was not even using. Log it and let the pool open another.
+  pool.on('error', error => console.error('[Cội] Kết nối Postgres nhàn rỗi bị lỗi:', error.message));
   const run = async (executor, sql, params) => executor.query(toPgSql(sql), params);
   const wrap = executor => ({
     dialect: 'postgres',
@@ -163,7 +169,7 @@ export async function openDatabase(target, { schema = '' } = {}) {
     const setup = new Pool({ connectionString: target });
     try { await setup.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`); } finally { await setup.end(); }
   }
-  const db = isPostgres(target) ? postgresDriver(target, schema) : sqliteDriver(target);
+  const db = isPostgres(target) ? postgresDriver(target, schema) : await sqliteDriver(target);
   const file = db.dialect === 'postgres' ? './schema.pg.sql' : './schema.sql';
   await db.exec(readFileSync(new URL(file, import.meta.url), 'utf8'));
   await migrate(db);
