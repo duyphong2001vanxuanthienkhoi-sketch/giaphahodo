@@ -8,7 +8,8 @@ import { parse, ancestorSchema } from '../server/validation.js';
 import { occurrences, birthdayEvents, todayInVietnam, addDays, solarLabel, pad } from '../shared/lunar.js';
 
 const config = getConfig();
-const file = resolve(process.argv[2] || './scripts/gia-pha.json');
+// Bỏ qua các cờ, nếu không "npm run import -- --cap-nhat" sẽ đi tìm một tệp tên --cap-nhat.
+const file = resolve(process.argv.slice(2).find(arg => !arg.startsWith('--')) || './scripts/gia-pha.json');
 const roster = JSON.parse(readFileSync(file, 'utf8'));
 if (!Array.isArray(roster.people) || !roster.people.length) {
   console.error(`Không tìm thấy danh sách "people" trong ${file}.`);
