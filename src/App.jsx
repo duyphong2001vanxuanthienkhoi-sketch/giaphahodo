@@ -25,6 +25,7 @@ const GUEST_PREFS={enabled:false,days:[],hour:7,minute:0,all_events:true};
 /** Bản công khai thiếu mọi thứ về người còn sống. Đổ vào đúng khuôn của bản thành viên
  * với giá trị rỗng, để các thành phần dùng chung không cần biết ai đang xem. */
 const asGuest = pub => ({...pub, guest:true, demo:false, calendar:null,
+  me_ancestor_id:null,
   user:{id:null,name:'Khách',email:'',phone:'',share_phone:false,role:'guest',family_id:null},
   members:[],preferences:GUEST_PREFS,subscriptions:[],attendance:[],trash:[],invitations:[],deliveries:[]});
 

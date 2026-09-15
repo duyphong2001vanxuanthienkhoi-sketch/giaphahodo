@@ -12,6 +12,9 @@ const shortDate = at => new Date(at.includes('Z')?at:at+'Z').toLocaleDateString(
 
 export default function PersonPage({ person, events, data, admin, guest = false, today, go, onEdit, onDeleteRequest, onRemind, reload, notify }) {
   const [draft,setDraft]=useState(''),[note,setNote]=useState(null),[busy,setBusy]=useState(false),[uploading,setUploading]=useState(false),[error,setError]=useState(''),[viewing,setViewing]=useState(null);
+  // Trùng tên với đúng một người còn sống trong họ thì đó chính là họ: ảnh của mình
+  // thì tự lo, không phải nhờ quản lý và không phải chờ duyệt.
+  const laToi=data.me_ancestor_id===person.id, tuLoAnh=admin||laToi;
   const photos=data.photos.filter(p=>p.ancestor_id===person.id);
   const memories=data.memories.filter(m=>m.ancestor_id===person.id);
   const approved=memories.filter(m=>m.status==='approved'), pending=memories.filter(m=>m.status==='pending');
@@ -89,9 +92,9 @@ export default function PersonPage({ person, events, data, admin, guest = false,
       <div className="person-main">
         <section className="person-section">
           <div className="section-bar"><h2><Images/>Album ảnh{photos.length?` · ${photos.length}`:''}</h2>
-            {!guest&&<label className="button"><ImagePlus/>{uploading?'Đang tải lên…':admin?'Thêm ảnh':'Góp ảnh'}<input type="file" accept="image/*" multiple hidden disabled={uploading} onChange={addPhotos}/></label>}</div>
+            {!guest&&<label className="button"><ImagePlus/>{uploading?'Đang tải lên…':tuLoAnh?'Thêm ảnh':'Góp ảnh'}<input type="file" accept="image/*" multiple hidden disabled={uploading} onChange={addPhotos}/></label>}</div>
           {photos.length===0
-            ? <p className="muted">{guest?'Gia đình chưa thêm ảnh về người thân này.':admin?'Chưa có ảnh nào. Thêm ảnh để con cháu nhớ mặt người.':'Chưa có ảnh nào. Bạn có ảnh thì góp vào, người quản lý duyệt xong cả họ sẽ thấy.'}</p>
+            ? <p className="muted">{guest?'Gia đình chưa thêm ảnh về người thân này.':laToi?'Chưa có ảnh nào của bạn. Chọn một tấm để cả họ nhớ mặt.':admin?'Chưa có ảnh nào. Thêm ảnh để con cháu nhớ mặt người.':'Chưa có ảnh nào. Bạn có ảnh thì góp vào, người quản lý duyệt xong cả họ sẽ thấy.'}</p>
             : <div className="photo-grid">{photos.map(photo=><figure key={photo.id} className={photo.id===person.photo_id?'portrait':''}>
                 <button onClick={()=>setViewing(photo)} aria-label={photo.caption||`Xem ảnh của ${person.name}`}><img src={`/api/photos/${photo.id}`} alt={photo.caption||`Ảnh ${person.name}`} loading="lazy"/></button>
                 {photo.id===person.photo_id&&<span className="portrait-flag"><Star/>Ảnh đại diện</span>}
@@ -160,7 +163,7 @@ export default function PersonPage({ person, events, data, admin, guest = false,
 
     {viewing&&<Modal title={viewing.caption||person.name} eyebrow={`Ảnh ${shortDate(viewing.created_at)}`} onClose={()=>setViewing(null)} wide>
       <div className="lightbox"><img src={`/api/photos/${viewing.id}`} alt={viewing.caption||`Ảnh ${person.name}`}/></div>
-      {admin&&<>
+      {tuLoAnh&&<>
         <label className="field full"><span>Chú thích ảnh</span>
           <input maxLength={200} placeholder="Ví dụ: Cụ chụp cùng con cháu, Tết 1992." defaultValue={viewing.caption}
             onBlur={e=>e.target.value!==viewing.caption&&act(()=>api('/photos/'+viewing.id,{method:'PATCH',body:{caption:e.target.value}}),'Đã lưu chú thích.')}/></label>

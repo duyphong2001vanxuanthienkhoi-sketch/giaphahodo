@@ -577,3 +577,36 @@ test('Ảnh đại diện của tài khoản: tự đặt được, quản lý �
   assert.equal((await f.request(`/members/${toi.id}/avatar`,{method:'DELETE',cookie:admin})).status,200);
   assert.equal((await f.request(`/members/${toi.id}/avatar`,{cookie:admin})).status,404);
 });
+
+test('Người đăng nhập trùng tên với người còn sống trong họ thì tự lo được ảnh của mình', async t => {
+  const f = await fixture(t), admin = await f.loginDemo(), member = await f.loginDemo('member');
+  const toi = (await f.request('/bootstrap',{cookie:member})).data.user;
+
+  // Thêm chính người ấy vào gia phả, để trùng tên với tài khoản đang đăng nhập.
+  const nguoi = { name:toi.name, generation:3, branch:'Chi thử', birth_year:1990, death_year:null,
+    parent_id:null, spouse_id:null, lunar_day:1, lunar_month:1, leap_policy:'regular', short_month_policy:'last-day',
+    location:'', biography:'', note:'', living:true, birth_date:'', phone:'', birth_order:0 };
+  const them = await f.request('/ancestors',{method:'POST',cookie:admin,body:nguoi});
+  assert.equal(them.status,201);
+  assert.equal((await f.request('/bootstrap',{cookie:member})).data.me_ancestor_id,them.data.id,'ứng dụng nhận ra đâu là chính mình');
+
+  // Ảnh của chính mình hiện ngay, không phải chờ duyệt, và thành ảnh đại diện.
+  const anh = await f.request(`/ancestors/${them.data.id}/photos`,{method:'POST',cookie:member,body:photoBody});
+  assert.equal(anh.data.status,'approved','ảnh của chính mình không phải chờ ai duyệt');
+  assert.equal(anh.data.portrait,true);
+  const them2 = await f.request(`/ancestors/${them.data.id}/photos`,{method:'POST',cookie:member,body:photoBody});
+  assert.equal((await f.request(`/ancestors/${them.data.id}/portrait`,{method:'PUT',cookie:member,body:{photo_id:them2.data.id}})).status,200,'tự đổi được ảnh đại diện của mình');
+  assert.equal((await f.request('/photos/'+anh.data.id,{method:'PATCH',cookie:member,body:{caption:'Ảnh tôi'}})).status,200);
+  assert.equal((await f.request('/photos/'+anh.data.id,{method:'DELETE',cookie:member})).status,200,'tự xóa được ảnh của mình');
+
+  // Nhưng chỉ của mình thôi: ảnh người khác vẫn phải chờ duyệt.
+  const nguoiKhac = (await f.request('/bootstrap',{cookie:admin})).data.ancestors.find(a=>a.id!==them.data.id);
+  const gop = await f.request(`/ancestors/${nguoiKhac.id}/photos`,{method:'POST',cookie:member,body:photoBody});
+  assert.equal(gop.data.status,'pending');
+  assert.equal((await f.request(`/ancestors/${nguoiKhac.id}/portrait`,{method:'PUT',cookie:member,body:{photo_id:gop.data.id}})).status,403);
+
+  // Trùng tên với hai người thì thôi không đoán nữa, thà chờ duyệt còn hơn gán nhầm.
+  assert.equal((await f.request('/ancestors',{method:'POST',cookie:admin,body:{...nguoi,generation:4}})).status,201);
+  assert.equal((await f.request('/bootstrap',{cookie:member})).data.me_ancestor_id,null,'trùng tên hai người thì không nhận là ai cả');
+  assert.equal((await f.request(`/ancestors/${them.data.id}/photos`,{method:'POST',cookie:member,body:photoBody})).data.status,'pending');
+});

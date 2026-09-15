@@ -84,6 +84,20 @@ export async function createApp(config, options = {}) {
     try { const keys = JSON.parse(family.observances ?? '[]'); return Array.isArray(keys) ? keys : DEFAULT_OBSERVANCES; }
     catch { return DEFAULT_OBSERVANCES; }
   };
+  /** Người đăng nhập trùng tên với đúng một người CÒN SỐNG trong gia phả thì đó chính
+   * là họ: ảnh của mình thì tự đặt, tự đổi, tự xoá, không phải chờ ai duyệt.
+   *
+   * Trùng tên với hai người trở lên thì thôi không đoán nữa — thà để chờ duyệt còn hơn
+   * gán nhầm mặt người này vào tên người kia. Người đã khuất không bao giờ tính là
+   * "chính mình", dù tên có trùng. */
+  const chuanTen = value => String(value||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('vi');
+  async function laChinhMinh(user,person) {
+    if (!person.living) return false;
+    const ten = chuanTen(user.name);
+    if (!ten || chuanTen(person.name) !== ten) return false;
+    const song = await db.all('SELECT name FROM ancestors WHERE family_id=? AND deleted_at IS NULL AND living=1', user.family_id);
+    return song.filter(row => chuanTen(row.name) === ten).length === 1;
+  }
   async function scopedAncestor(id,user) {
     const ancestor = await db.get('SELECT * FROM ancestors WHERE id=? AND family_id=? AND deleted_at IS NULL', id,user.family_id);
     if (!ancestor) throw new AppError(404,'Không tìm thấy người thân này.');
@@ -276,6 +290,10 @@ export async function createApp(config, options = {}) {
       ancestors:await livingAncestors(user.family_id),
       members:await db.all("SELECT id,name,email,role,created_at,avatar_id,CASE WHEN share_phone=1 THEN phone ELSE '' END AS phone FROM users WHERE family_id=? AND active=1 AND approved=1 ORDER BY role,created_at", user.family_id),
       pendingMembers:user.role==='admin'?await db.all('SELECT id,name,email,created_at FROM users WHERE family_id=? AND active=1 AND approved=0 ORDER BY created_at', user.family_id):[],
+      // Người đăng nhập trùng tên với ai trong gia phả thì đó chính là họ; giao diện cần
+      // biết để hiện đúng nút, chứ không để người ta bấm rồi mới nhận 403.
+      me_ancestor_id:(await db.all('SELECT id,name FROM ancestors WHERE family_id=? AND deleted_at IS NULL AND living=1', user.family_id))
+        .filter(row=>chuanTen(row.name)===chuanTen(user.name)).map(row=>row.id).filter((_,__,all)=>all.length===1)[0]||null,
       preferences:await preferences(user.id),subscriptions:(await db.all('SELECT ancestor_id FROM subscriptions WHERE user_id=?', user.id)).map(x=>x.ancestor_id),
       memories:user.role==='admin'
         ? await db.all(memorySql+' ORDER BY m.created_at DESC LIMIT 300', user.family_id)
@@ -412,7 +430,8 @@ export async function createApp(config, options = {}) {
     const {n}=await db.get('SELECT count(*) AS n FROM photos WHERE ancestor_id=?', person.id);
     if(n>=PHOTO_LIMIT)throw new AppError(409,`Mỗi người thân giữ tối đa ${PHOTO_LIMIT} ảnh. Hãy xóa bớt trước khi thêm.`);
     const {mime,bytes}=decodeImage(body.data);
-    const id=randomUUID(),status=req.user.role==='admin'?'approved':'pending';
+    const chinhChu=await laChinhMinh(req.user,person);
+    const id=randomUUID(),status=(req.user.role==='admin'||chinhChu)?'approved':'pending';
     const url=await store.write(id,mime,bytes);
     const thanhAnhDaiDien=status==='approved'&&!person.photo_id;
     await db.transaction(async tx => {
@@ -424,16 +443,22 @@ export async function createApp(config, options = {}) {
     await record('photo.add',{req,actor:req.user.email,familyId:req.user.family_id,detail:`${person.name} · ${status==='pending'?'chờ duyệt':'hiện ngay'}`});
     res.status(201).json({id,portrait:thanhAnhDaiDien,status});
   });
-  app.put('/api/ancestors/:id/portrait',auth,admin,async (req,res) => {
+  app.put('/api/ancestors/:id/portrait',auth,async (req,res) => {
     const person=await scopedAncestor(req.params.id,req.user);
+    if(req.user.role!=='admin'&&!await laChinhMinh(req.user,person))throw new AppError(403,'Chỉ người quản lý, hoặc chính người ấy, mới đổi được ảnh đại diện.');
     const {photo_id}=parse(z.object({photo_id:z.string().uuid().nullable()}).strict(),req.body);
     // Ảnh chưa duyệt không được làm ảnh đại diện: ảnh đại diện hiện cả với khách.
     if(photo_id&&!await db.get("SELECT id FROM photos WHERE id=? AND ancestor_id=? AND status='approved'", photo_id,person.id))throw new AppError(404,'Ảnh này không thuộc về người thân đã chọn, hoặc chưa được duyệt.');
     await db.run('UPDATE ancestors SET photo_id=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?', photo_id,person.id);
     res.json({ok:true});
   });
-  app.patch('/api/photos/:id',auth,admin,async (req,res) => {
+  app.patch('/api/photos/:id',auth,async (req,res) => {
     const {caption}=parse(z.object({caption:z.string().trim().max(200)}).strict(),req.body);
+    if(req.user.role!=='admin'){
+      const anh=await db.get('SELECT ancestor_id FROM photos WHERE id=? AND family_id=?', req.params.id,req.user.family_id);
+      const nguoi=anh&&await db.get('SELECT * FROM ancestors WHERE id=?', anh.ancestor_id);
+      if(!nguoi||!await laChinhMinh(req.user,nguoi))throw new AppError(403,'Chỉ người quản lý, hoặc chính người ấy, mới sửa được chú thích.');
+    }
     const result=await db.run('UPDATE photos SET caption=? WHERE id=? AND family_id=?', caption,req.params.id,req.user.family_id);
     if(!result.changes)throw new AppError(404,'Không tìm thấy ảnh.');res.json({ok:true});
   });
@@ -454,7 +479,9 @@ export async function createApp(config, options = {}) {
     const photo=await db.get('SELECT * FROM photos WHERE id=? AND family_id=?', req.params.id,req.user.family_id);
     if(!photo)throw new AppError(404,'Không tìm thấy ảnh.');
     const tuRutLai=photo.status==='pending'&&photo.created_by===req.user.id;
-    if(req.user.role!=='admin'&&!tuRutLai)throw new AppError(403,'Chỉ người quản lý được xóa ảnh đã hiện cho cả họ.');
+    const nguoiTrongAnh=await db.get('SELECT * FROM ancestors WHERE id=?', photo.ancestor_id);
+    const chinhChu=nguoiTrongAnh?await laChinhMinh(req.user,nguoiTrongAnh):false;
+    if(req.user.role!=='admin'&&!tuRutLai&&!chinhChu)throw new AppError(403,'Chỉ người quản lý, hoặc chính người ấy, mới xóa được ảnh này.');
     await db.transaction(async tx => {
       await tx.run('DELETE FROM photos WHERE id=?', photo.id);
       // ON DELETE SET NULL already cleared the portrait; fall back to another photo.

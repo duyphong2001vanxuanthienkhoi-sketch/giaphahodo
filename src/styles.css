@@ -469,3 +469,10 @@
 .portrait-flag.cho-duyet{background:var(--gold-veil);color:var(--gold);border-color:var(--gold-deep)}
 .duyet-anh{position:absolute;left:8px;right:8px;bottom:8px;min-height:36px;padding:8px 10px;font-size:.78125rem}
 .photo-grid figure{position:relative}
+
+/* Hai nút thêm lịch: máy nào thì nút của máy ấy lên trước, nhưng luôn hiện đủ cả hai
+   để người dùng máy tính vẫn chọn được cho điện thoại của mình. */
+.sync-primary{display:flex;flex-direction:column;gap:9px}
+.sync-primary.android-truoc{flex-direction:column-reverse}
+.sync-primary.android-truoc .hint{order:-1}
+.sync-primary .hint{margin-top:2px}

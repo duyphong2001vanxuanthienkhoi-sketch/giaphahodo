@@ -8,6 +8,12 @@ export default function CalendarSync({ calendar, preferences, notify, reload }) 
   const alarms=preferences.enabled&&preferences.days.length
     ? preferences.days.map(d=>d===0?'đúng ngày':`trước ${d} ngày`).join(' · ')
     : null;
+  // Chỉ để quyết định nút nào đặt lên trước; đoán sai cũng không mất gì vì cả hai nút
+  // đều hiện. Không dùng để chặn tính năng, nên không cần chính xác tuyệt đối.
+  const may=/iPhone|iPad|iPod/i.test(navigator.userAgent)?'ios':/Android/i.test(navigator.userAgent)?'android':'';
+  // Trang thêm lịch bằng URL của Google. Không có cách nào khác: ứng dụng Google Lịch
+  // trên điện thoại không có chỗ nhập link, việc này chỉ làm được qua trang web.
+  const googleUrl='https://calendar.google.com/calendar/u/0/r/settings/addbyurl?cid='+encodeURIComponent(feed.url);
   async function copy(){
     try{await navigator.clipboard.writeText(feed.url);setCopied(true);setTimeout(()=>setCopied(false),2500);notify('Đã sao chép link lịch.');}
     catch{setError('Trình duyệt không cho sao chép tự động. Hãy chọn và sao chép đường dẫn bên dưới.');}
@@ -19,12 +25,21 @@ export default function CalendarSync({ calendar, preferences, notify, reload }) 
   }
   return <section className="calendar-sync">
     <div className="settings-title"><h2>Nối thẳng vào lịch điện thoại</h2><p>Đăng ký một lần. Lịch tự cập nhật khi gia đình thêm hoặc sửa ngày giỗ.</p></div>
-    <div className="sync-primary">
-      <a className="button primary full-width" href={feed.webcal}><CalendarPlus/>Thêm vào lịch điện thoại</a>
-      <p className="hint">Mở link này ngay trên điện thoại. Máy sẽ hỏi bạn có muốn đăng ký lịch không.</p>
+    {/* iPhone nhận thẳng webcal:// và tự hỏi có đăng ký không. Google Lịch trên Android
+        không có chỗ nào nhập link cả, nên đường duy nhất là trang "thêm bằng URL" của
+        Google — mở sẵn với link đã điền, thay vì bắt người ta tự đi tìm trong cài đặt.
+        Máy nào thì để nút của máy ấy lên trước, hai nút vẫn luôn hiện đủ. */}
+    <div className={`sync-primary ${may==='android'?'android-truoc':''}`}>
+      <a className="button primary full-width" href={feed.webcal}><Smartphone/>Thêm vào Lịch iPhone</a>
+      <a className="button primary full-width" href={googleUrl} target="_blank" rel="noreferrer"><CalendarPlus/>Thêm vào Google Lịch</a>
+      <p className="hint">{may==='ios'
+        ? 'Bấm nút trên, máy sẽ hỏi bạn có đăng ký lịch không.'
+        : may==='android'
+          ? 'Google Lịch sẽ mở trang thêm lịch với link đã điền sẵn. Nếu hỏi đăng nhập thì đăng nhập rồi bấm lại.'
+          : 'Mở trang này ngay trên điện thoại rồi bấm nút của loại máy bạn đang dùng.'}</p>
     </div>
     <div className="sync-row">
-      <Button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'Đã sao chép':'Sao chép link cho Google Lịch'}</Button>
+      <Button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'Đã sao chép':'Sao chép link lịch'}</Button>
       <Button onClick={()=>setQr(true)}><QrCode/>Hiện mã QR</Button>
       <a className="button" href="/api/calendar.ics"><Download/>Tải tệp .ics một lần</a>
     </div>
