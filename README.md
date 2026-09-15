@@ -52,6 +52,10 @@ npm run dev
 
 Mở `http://localhost:5173`.
 
+## Đưa lên mạng
+
+Xem [DEPLOY.md](DEPLOY.md) — hướng dẫn từng bước từ lấy khóa, gắn volume, tới lúc điện thoại đổ chuông, kèm phần giải thích vì sao Vercel/Neon không hợp với app này.
+
 ## Cấu hình production
 
 Sao chép `.env.example` thành `.env` và đặt tối thiểu:
