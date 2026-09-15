@@ -3,7 +3,10 @@ import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 
 export function getConfig(overrides = {}) {
-  const production = process.env.NODE_ENV === 'production';
+  // Đừng chỉ tin NODE_ENV: Vercel tự đặt biến này, và nếu ai đó khai đè hoặc xóa nhầm
+  // thì app sẽ tưởng mình đang chạy local — bỏ qua mọi kiểm tra và có thể bật dữ liệu mẫu
+  // ngay trên bản chạy thật. VERCEL_ENV do nền tảng đặt, không sửa được từ danh sách biến.
+  const production = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   const config = {
     production,
     port: Number(process.env.PORT || 3001),
