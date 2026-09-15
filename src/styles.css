@@ -432,6 +432,11 @@
   /* Chừa chỗ cho thanh, nếu không dòng cuối mỗi trang bị thanh che mất. */
   .main-content{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
   .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
-  /* Nút ba gạch không còn việc gì: mục "Khác" đã mở ngăn kéo rồi. */
-  .mobile-toggle{display:none}
 }
+
+/* Nút lùi ở thanh đầu: dùng chính mũi tên của bộ icon, lật lại. Hiện ở mọi bề ngang,
+   vì trang của một người và trang tài khoản đều không có mục nào trên thanh điều hướng
+   để bấm về. */
+.back-button svg{transform:scaleX(-1)}
+.back-button{color:var(--gold)}
+.back-button:hover{background:var(--raised);color:var(--gold-light)}

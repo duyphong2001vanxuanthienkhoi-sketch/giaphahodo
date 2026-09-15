@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LoiNhac } from './icons.jsx';
 import { Bell, ShieldCheck, Save, Landmark, Download, Trash2, RotateCcw, Sparkles, Phone, ScrollText } from 'lucide-react';
 import { api } from './api.js';
 import { Avatar, Button, Field, PageHeading, Modal } from './components.jsx';
@@ -50,7 +51,7 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
               </div>
               {!prefs.all_events&&<p className="hint">Bạn đang theo dõi {data.subscriptions.length} người thân. Bấm biểu tượng chuông ở ngày giỗ để chọn người cần nhắc.</p>}
             </fieldset>
-            <div className="settings-footer"><Button variant="primary" type="submit" disabled={busy}><Bell/>{busy?'Đang lưu…':'Lưu cài đặt nhắc'}</Button></div>
+            <div className="settings-footer"><Button variant="primary" type="submit" disabled={busy}><LoiNhac/>{busy?'Đang lưu…':'Lưu cài đặt nhắc'}</Button></div>
             {data.demo&&<div className="info-note"><ShieldCheck/>Bản dùng thử chỉ lưu lựa chọn, không gửi email thật.</div>}
           </form>
           <CalendarSync calendar={data.calendar} preferences={data.preferences} notify={notify} reload={reload}/>

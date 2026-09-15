@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CalendarDays, MapPin, BookHeart, Bell, Edit3, Trash2, Check, X, Send, Clock3, Users, HelpCircle, ImagePlus, Star, ChevronLeft, GitBranch, Images } from 'lucide-react';
+import { LoiNhac } from './icons.jsx';
+import { CalendarDays, MapPin, BookHeart, Bell, Edit3, Trash2, Check, X, Send, Clock3, Users, HelpCircle, ImagePlus, Star, ChevronLeft, GitBranch, Images, Cake, Phone } from 'lucide-react';
 import { api } from './api.js';
 import { Avatar, Button, Modal, Empty } from './components.jsx';
 import { preparePortrait } from './image.js';
@@ -59,11 +60,21 @@ export default function PersonPage({ person, events, data, admin, guest = false,
       <div className="person-headline">
         <p className="eyebrow">Đời thứ {person.generation}{person.branch&&person.branch!=='Chưa phân chi'?' · '+person.branch:''}</p>
         <h1>{person.name}</h1>
-        <p className="life-years">{person.birth_year||'…'} — {person.death_year||'…'}</p>
-        <p className="inline-meta"><CalendarDays/>Giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm lịch{person.leap_policy==='both'?' · cả tháng nhuận':''}</p>
-        <p className="inline-meta location"><MapPin/>{person.location||'Chưa cập nhật địa điểm'}</p>
+        {/* Người còn sống không có ngày giỗ. Trang này vốn chỉ dành cho người đã khuất,
+            nên nếu cứ đổ khuôn cũ lên thì ngày 01/01 đặt tạm trong cơ sở dữ liệu sẽ hiện
+            ra thành "giỗ" của một người đang sống — điều không được phép xảy ra. */}
+        <p className="life-years">{person.living
+          ? (person.birth_year?`Sinh ${person.birth_year}`:'Còn sống')
+          : `${person.birth_year||'…'} — ${person.death_year||'…'}`}</p>
+        {person.living
+          ? (person.birth_date&&<p className="inline-meta"><Cake/>Sinh ngày {solarLabel(person.birth_date)} dương lịch</p>)
+          : <p className="inline-meta"><CalendarDays/>Giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm lịch{person.leap_policy==='both'?' · cả tháng nhuận':''}</p>}
+        {/* living là số 0/1 lấy thẳng từ cơ sở dữ liệu, và {0 && …} thì React in ra số 0
+            chứ không in ra chỗ trống — nên phải ép về boolean trước khi dùng làm điều kiện. */}
+        {!!person.living&&!!person.phone&&!guest&&<p className="inline-meta"><Phone/><a href={`tel:${person.phone.replace(/\s/g,'')}`}>{person.phone}</a></p>}
+        {!person.living&&<p className="inline-meta location"><MapPin/>{person.location||'Chưa cập nhật địa điểm'}</p>}
         <div className="hero-actions">
-          {!guest&&<Button variant="primary" onClick={()=>onRemind(person)}><Bell/>Lời nhắc ngày giỗ</Button>}
+          {!guest&&!person.living&&<Button variant="primary" onClick={()=>onRemind(person)}><LoiNhac/>Lời nhắc ngày giỗ</Button>}
           {admin&&<Button onClick={onEdit}><Edit3/>Chỉnh sửa</Button>}
           {admin&&<button className="icon-button danger" aria-label={`Xóa ${person.name}`} onClick={onDeleteRequest}><Trash2/></button>}
         </div>
