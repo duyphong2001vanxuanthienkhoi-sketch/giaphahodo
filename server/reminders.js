@@ -22,8 +22,8 @@ export async function runReminders({db,mailer,config,now=new Date()}) {
       await db.run("INSERT INTO mail_deliveries(delivery_key,user_id,ancestor_id,status,attempts,attempted_at) VALUES(?,?,?,'pending',1,?) ON CONFLICT(delivery_key) DO UPDATE SET status='pending',attempts=mail_deliveries.attempts+1,attempted_at=excluded.attempted_at,error=NULL", key,user.id,event.id,timestamp);
       try {
         const lead=event.daysAway===0?'Hôm nay':`Còn ${event.daysAway} ngày`;
-        await mailer.send({to:user.email,id:hash(key),subject:`Cội · ${lead}: ngày giỗ ${event.name}`,
-          text:`Chào ${user.name},\n\n${lead} là ngày giỗ ${event.name}.\nÂm lịch: ${event.lunar_day}/${event.lunar_month}${event.lunar.leap?' (tháng nhuận)':''}.\nDương lịch: ${solarLabel(event.date)}.${event.shifted?'\nTháng này có 29 ngày; gia đình đã chọn làm giỗ vào ngày cuối tháng.':''}\nĐịa điểm: ${event.location||'Gia đình sẽ cập nhật'}.\n${event.note?`Ghi chú: ${event.note}\n`:''}\nXem lịch và thay đổi hoặc tắt lời nhắc: ${config.appUrl}/#account\n\nCội · Gìn giữ nếp nhà.`});
+        await mailer.send({to:user.email,id:hash(key),subject:`Đỗ Gia · ${lead}: ngày giỗ ${event.name}`,
+          text:`Chào ${user.name},\n\n${lead} là ngày giỗ ${event.name}.\nÂm lịch: ${event.lunar_day}/${event.lunar_month}${event.lunar.leap?' (tháng nhuận)':''}.\nDương lịch: ${solarLabel(event.date)}.${event.shifted?'\nTháng này có 29 ngày; gia đình đã chọn làm giỗ vào ngày cuối tháng.':''}\nĐịa điểm: ${event.location||'Gia đình sẽ cập nhật'}.\n${event.note?`Ghi chú: ${event.note}\n`:''}\nXem lịch và thay đổi hoặc tắt lời nhắc: ${config.appUrl}/#account\n\nĐỗ Gia · Gìn giữ nếp nhà.`});
         await db.run("UPDATE mail_deliveries SET status='sent',sent_at=?,error=NULL WHERE delivery_key=?", now.toISOString(),key);sent++;
       } catch(error) {
         await db.run("UPDATE mail_deliveries SET status='failed',error=? WHERE delivery_key=?", String(error.code||'MAIL_FAILED').slice(0,100),key);failed++;
@@ -39,6 +39,6 @@ export async function runReminders({db,mailer,config,now=new Date()}) {
 }
 export function startScheduler(context) {
   let busy=false;
-  const tick=async()=>{if(busy)return;busy=true;try{await runReminders(context);}catch(error){console.error('[Cội] Reminder job failed:',error.name);}finally{busy=false;}};
+  const tick=async()=>{if(busy)return;busy=true;try{await runReminders(context);}catch(error){console.error('[Đỗ Gia] Reminder job failed:',error.name);}finally{busy=false;}};
   const timer=setInterval(tick,60000);timer.unref();void tick();return ()=>clearInterval(timer);
 }

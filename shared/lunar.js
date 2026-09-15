@@ -48,6 +48,7 @@ export function occurrences(ancestors,from,to) {
   for(let i=0;i<=length;i++) {
     const date=addDays(from,i),lunar=lunarDate(date);
     for(const ancestor of ancestors) {
+      if(ancestor.living)continue; // Người còn sống không có ngày giỗ.
       if(ancestor.lunar_month!==lunar.month)continue;
       if(ancestor.death_year&&lunar.year<ancestor.death_year)continue;
       const preferred=ancestor.leap_policy==='prefer-leap'&&leapMonth(lunar.year)===lunar.month;
@@ -122,3 +123,26 @@ export function spanEvents(from,to,generator) {
   }
   return events;
 }
+
+/** Sinh nhật tính theo DƯƠNG lịch, khác ngày giỗ tính theo âm lịch. Ngày 29/02 chỉ
+ * rơi vào năm nhuận, nên năm thường lùi về 28/02 để vẫn có một ngày mừng. */
+export function birthdayEvents(people, from, to) {
+  const length=daysBetween(from,to);
+  if(length<0||length>800)throw new Error('Khoảng tra cứu phải nằm trong 800 ngày.');
+  const wanted=people.filter(p=>p.living&&/^\d{4}-\d{2}-\d{2}$/.test(p.birth_date||''));
+  if(!wanted.length)return [];
+  const events=[];
+  for(let i=0;i<=length;i++) {
+    const date=addDays(from,i), month=date.slice(5,7), day=date.slice(8,10);
+    const isLeapDay=month==='02'&&day==='28'&&!isLeapYear(Number(date.slice(0,4)));
+    for(const person of wanted) {
+      const bm=person.birth_date.slice(5,7), bd=person.birth_date.slice(8,10);
+      const hit=(bm===month&&bd===day)||(isLeapDay&&bm==='02'&&bd==='29');
+      if(!hit)continue;
+      const turning=Number(date.slice(0,4))-Number(person.birth_date.slice(0,4));
+      events.push({...person,date,birthday:true,turning,key:`bd:${person.id}:${date}`,daysAway:daysBetween(from,date)});
+    }
+  }
+  return events.sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name,'vi'));
+}
+const isLeapYear = y => (y%4===0&&y%100!==0)||y%400===0;

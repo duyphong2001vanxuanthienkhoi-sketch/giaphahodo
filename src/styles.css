@@ -212,3 +212,36 @@
 .audit-tag.tai-khoan-moi{background:#333a23;color:var(--gold)}
 .audit-tag.dang-nhap-that-bai,.audit-tag.thu-hoi-truy-cap{background:#3a2c27;color:var(--red)}
 @media(max-width:560px){.audit-row{flex-wrap:wrap}.audit-row small{width:100%}}
+
+/* ===== Danh bạ người còn sống ===== */
+.living-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.living-card{border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:17px;display:flex;flex-direction:column;gap:11px}
+.living-head{display:flex;align-items:center;gap:12px;background:none;border:none;padding:0;text-align:left;width:100%}
+.living-head>div{min-width:0;flex:1}
+.living-head strong{display:block;font-size:.92rem;font-weight:500}
+.living-head span{font-size:.73rem;color:var(--muted)}
+.living-meta{display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--muted);line-height:1.7}
+.living-meta svg{width:15px;height:15px;flex-shrink:0}
+.living-phone{display:inline-flex;align-items:center;gap:9px;font-size:.85rem;color:var(--gold);text-decoration:none;padding:9px 12px;border:1px solid #4a5136;border-radius:9px;background:#252e20;justify-content:center}
+.living-phone:hover{background:#2c3626;border-color:#5f6a45}
+.living-phone svg{width:16px;height:16px}
+
+/* ===== Ô lịch có chữ ===== */
+.day-dots .dot{width:4px;height:4px;border-radius:50%}
+.day-dots .dot.gio{background:var(--gold)}
+.day-dots .dot.sinhnhat{background:#8fb6d6}
+.day-dots .dot.viecho{background:#8aa173}
+.calendar-legend i.gio{background:var(--gold)}
+.calendar-legend i.sinhnhat{background:#8fb6d6}
+.calendar-legend i.viecho{background:#8aa173}
+.day-labels{display:flex;flex-direction:column;gap:1px;width:100%;margin-top:2px;overflow:hidden}
+.day-label{font-size:.58rem;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.day-label.gio{color:var(--gold)}
+.day-label.sinhnhat{color:#8fb6d6}
+.day-label.viecho{color:#9db287}
+.day-label.more{color:var(--muted)}
+@media(max-width:760px){.day-labels{display:none}}
+
+/* ===== Màn đăng ký ===== */
+.register-done{text-align:center}
+.register-done .modal-copy{margin:14px 0 20px}

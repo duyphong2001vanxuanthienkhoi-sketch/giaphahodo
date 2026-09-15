@@ -42,7 +42,7 @@ export function createMailer(config) {
   return {
     async send({ to, subject, text, id }) {
       const info = await transport.sendMail({
-        from: process.env.MAIL_FROM || 'Cội <no-reply@example.com>', to, subject, text,
+        from: process.env.MAIL_FROM || 'Đỗ Gia <no-reply@example.com>', to, subject, text,
         messageId: id ? `<${id}@${new URL(config.appUrl).hostname}>` : undefined,
         disableFileAccess: true, disableUrlAccess: true,
       });

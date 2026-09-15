@@ -37,7 +37,7 @@ export default function CalendarSync({ calendar, preferences, notify, reload }) 
     <details className="sync-help">
       <summary><Smartphone/>Cách làm trên từng loại máy</summary>
       <dl>
-        <dt>iPhone / iPad</dt><dd>Mở link ở trên bằng Safari ngay trên máy, rồi bấm <strong>Đăng ký</strong>. Báo thức của Cội được giữ nguyên.</dd>
+        <dt>iPhone / iPad</dt><dd>Mở link ở trên bằng Safari ngay trên máy, rồi bấm <strong>Đăng ký</strong>. Báo thức của Đỗ Gia được giữ nguyên.</dd>
         <dt>Android / Google Lịch</dt><dd>Sao chép link, mở <strong>calendar.google.com</strong> trên máy tính, vào <strong>Lịch khác → Từ URL</strong> rồi dán vào. Google bỏ qua báo thức có sẵn, nên hãy vào phần cài đặt của lịch vừa thêm để đặt thông báo cho riêng nó.</dd>
         <dt>Outlook</dt><dd>Vào <strong>Thêm lịch → Đăng ký từ web</strong> rồi dán link.</dd>
       </dl>

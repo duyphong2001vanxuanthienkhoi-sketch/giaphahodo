@@ -7,13 +7,13 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { openDatabase, transaction } from './db.js';
 import { createMailer } from './mail.js';
-import { AppError, hash, token, otpHash, sameHash, limit, readCookie } from './security.js';
-import { parse, emailSchema, ancestorSchema, preferenceSchema, profileSchema, inviteSchema, familySchema, memorySchema, attendanceSchema, photoSchema } from './validation.js';
+import { AppError, hash, token, otpHash, sameHash, limit, readCookie, hashPassword, verifyPassword } from './security.js';
+import { parse, emailSchema, ancestorSchema, preferenceSchema, profileSchema, inviteSchema, familySchema, memorySchema, attendanceSchema, photoSchema, registerSchema } from './validation.js';
 import { decodeImage, createStorage } from './storage.js';
 import { buildCalendar } from './calendar.js';
 import { seedDemo } from './seed.js';
 import { runReminders } from './reminders.js';
-import { occurrences, todayInVietnam, addDays, DEFAULT_OBSERVANCES } from '../shared/lunar.js';
+import { occurrences, birthdayEvents, todayInVietnam, addDays, DEFAULT_OBSERVANCES } from '../shared/lunar.js';
 
 const FEED_DAYS = 5 * 365 + 2;
 
@@ -37,13 +37,13 @@ export async function createApp(config, options = {}) {
       const origin = req.headers.origin;
       const allowed = new Set([new URL(config.appUrl).origin]);
       if (!config.production) {allowed.add('http://localhost:5173');allowed.add('http://127.0.0.1:5173');allowed.add('http://127.0.0.1:3001');allowed.add('http://localhost:3001');}
-      if (req.headers['x-coi-request'] !== '1' || (origin && !allowed.has(origin))) return next(new AppError(403,'Yêu cầu không hợp lệ. Hãy tải lại Cội rồi thử lại.'));
+      if (req.headers['x-coi-request'] !== '1' || (origin && !allowed.has(origin))) return next(new AppError(403,'Yêu cầu không hợp lệ. Hãy tải lại Đỗ Gia rồi thử lại.'));
     }
     next();
   });
   async function auth(req,res,next) {
     const raw = readCookie(req,'coi_session');
-    const user = raw ? await db.get('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.active=1', hash(raw),Date.now()) : null;
+    const user = raw ? await db.get('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.active=1 AND u.approved=1', hash(raw),Date.now()) : null;
     if (!user) return next(new AppError(401,'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.'));
     req.user = user; next();
   }
@@ -95,7 +95,7 @@ export async function createApp(config, options = {}) {
         request ? hash(request.ip).slice(0,32) : '');
     } catch (error) {
       // Nhật ký hỏng thì không được kéo đổ thao tác chính.
-      console.error('[Cội] Không ghi được nhật ký:', error.message);
+      console.error('[Đỗ Gia] Không ghi được nhật ký:', error.message);
     }
   }
 
@@ -125,11 +125,11 @@ export async function createApp(config, options = {}) {
       const code = String(randomInt(100000,1000000));
       await db.run('DELETE FROM otp_challenges WHERE email=? OR expires_at<?', email,Date.now());
       await db.run('INSERT INTO otp_challenges(id,email,code_hash,invite_hash,expires_at) VALUES(?,?,?,?,?)', id,email,otpHash(config.secret,id,code),invite?.token_hash || null,Date.now()+10*60000);
-      try { await mailer.send({to:email,subject:'Mã đăng nhập Cội',text:`Mã xác nhận của bạn là ${code}.\nMã có hiệu lực 10 phút và chỉ dùng một lần.\nKhông chia sẻ mã này cho người khác.\n\nNếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này.`}); }
+      try { await mailer.send({to:email,subject:'Mã đăng nhập Đỗ Gia',text:`Mã xác nhận của bạn là ${code}.\nMã có hiệu lực 10 phút và chỉ dùng một lần.\nKhông chia sẻ mã này cho người khác.\n\nNếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này.`}); }
       catch (error) {
         // Ghi lý do thật ra log: người quản lý cần biết là sai khóa, sai địa chỉ gửi
         // hay nhà cung cấp từ chối — chứ 503 trần thì không lần ra được.
-        console.error('[Cội] Không gửi được mã đăng nhập:', error.message);
+        console.error('[Đỗ Gia] Không gửi được mã đăng nhập:', error.message);
         await db.run('DELETE FROM otp_challenges WHERE id=?', id);
         throw new AppError(503,'Chưa gửi được mã xác nhận. Vui lòng thử lại sau.');
       }
@@ -185,6 +185,16 @@ export async function createApp(config, options = {}) {
     // So cả hai vế và chỉ trả một thông điệp, để không lộ email nào là đúng.
     const emailOk = !!config.adminEmail && sameHash(hash(email),hash(config.adminEmail));
     const passOk = !!config.adminPassword && sameHash(hash(password),hash(config.adminPassword));
+    if (!(emailOk&&passOk)) {
+      // Không phải tài khoản quản lý từ biến môi trường: thử tài khoản đã đăng ký.
+      const member = await db.get('SELECT * FROM users WHERE email=? AND active=1', email);
+      if (member && member.password_hash && verifyPassword(password, member.password_hash)) {
+        if (!member.approved) { await record('dang-nhap-that-bai',{actor:email,detail:'tài khoản chưa được duyệt',req}); throw new AppError(403,'Tài khoản của bạn đang chờ người quản lý duyệt.'); }
+        await record('dang-nhap',{actor:member.email,detail:'bằng mật khẩu riêng',familyId:member.family_id,req});
+        await session(res,member);
+        return res.json({user:cleanUser(member)});
+      }
+    }
     if(!emailOk||!passOk){
       await record('dang-nhap-that-bai',{actor:email,detail:'sai email hoặc mật khẩu',req});
       throw new AppError(401,'Email hoặc mật khẩu chưa đúng.');
@@ -201,6 +211,27 @@ export async function createApp(config, options = {}) {
     await record('dang-nhap',{actor:user.email,detail:'bằng mật khẩu quản lý',familyId:user.family_id,req});
     await session(res,user);res.json({user:cleanUser(user)});
   });
+  app.post('/api/auth/register', async (req,res) => {
+    const b = parse(registerSchema, req.body);
+    await limit(db,'register-ip:'+hash(req.ip),5,60*60000);
+    const family = await db.get("SELECT * FROM families WHERE id!='demo-family' ORDER BY created_at LIMIT 1");
+    if(!family)throw new AppError(409,'Dòng họ chưa được khởi tạo. Hãy nhờ người quản lý đăng nhập một lần trước.');
+    if(await db.get('SELECT id FROM users WHERE email=?', b.email))throw new AppError(409,'Email này đã được dùng để đăng ký.');
+    const id = randomUUID();
+    // Mặc định chờ duyệt: danh bạ số điện thoại của người còn sống chỉ kín thật sự
+    // khi người quản lý kiểm soát được ai vào.
+    await db.run("INSERT INTO users(id,family_id,email,name,role,password_hash,approved) VALUES(?,?,?,?,'member',?,0)",
+      id, family.id, b.email, b.name, hashPassword(b.password));
+    await record('dang-ky-moi',{actor:b.email,detail:`${b.name} — chờ duyệt`,familyId:family.id,req});
+    res.status(201).json({pending:true,message:'Đã gửi đăng ký. Người quản lý sẽ duyệt trước khi bạn vào được.'});
+  });
+  app.post('/api/members/:id/approve',auth,admin,async (req,res) => {
+    const member = await db.get('SELECT * FROM users WHERE id=? AND family_id=?', req.params.id, req.user.family_id);
+    if(!member)throw new AppError(404,'Không tìm thấy tài khoản này.');
+    await db.run('UPDATE users SET approved=1 WHERE id=?', member.id);
+    await record('duyet-tai-khoan',{actor:req.user.email,detail:member.email,familyId:req.user.family_id,req});
+    res.json({ok:true});
+  });
   app.post('/api/auth/logout', auth, async (req,res) => {
     await db.run('DELETE FROM sessions WHERE token_hash=?', hash(readCookie(req,'coi_session')));
     res.clearCookie('coi_session',{path:'/',httpOnly:true,secure:config.production,sameSite:'lax'});res.json({ok:true});
@@ -211,7 +242,7 @@ export async function createApp(config, options = {}) {
     if(!family)return res.json({family:null,ancestors:[],photos:[],memories:[],today:todayInVietnam()});
     return res.json({
       family:{name:family.name,home:family.home,observances:familyObservances(family)},
-      ancestors:await livingAncestors(family.id),
+      ancestors:(await livingAncestors(family.id)).filter(p=>!p.living), // người còn sống không công khai
       photos:await db.all('SELECT id,ancestor_id,caption,created_at FROM photos WHERE family_id=? ORDER BY created_at', family.id),
       // Chỉ ký ức đã duyệt, và chỉ tên người viết — không kèm id hay email.
       memories:await db.all("SELECT m.id,m.ancestor_id,m.body,m.created_at,u.name AS author_name,'approved' AS status FROM memories m JOIN users u ON u.id=m.author_id WHERE m.family_id=? AND m.status='approved' ORDER BY m.created_at DESC LIMIT 300", family.id),
@@ -224,7 +255,8 @@ export async function createApp(config, options = {}) {
     const memorySql='SELECT m.id,m.ancestor_id,m.body,m.status,m.created_at,m.author_id,u.name AS author_name FROM memories m JOIN users u ON u.id=m.author_id WHERE m.family_id=?';
     res.json({user:cleanUser(user),family:{...family,observances:familyObservances(family)},
       ancestors:await livingAncestors(user.family_id),
-      members:await db.all("SELECT id,name,email,role,created_at,CASE WHEN share_phone=1 THEN phone ELSE '' END AS phone FROM users WHERE family_id=? AND active=1 ORDER BY role,created_at", user.family_id),
+      members:await db.all("SELECT id,name,email,role,created_at,CASE WHEN share_phone=1 THEN phone ELSE '' END AS phone FROM users WHERE family_id=? AND active=1 AND approved=1 ORDER BY role,created_at", user.family_id),
+      pendingMembers:user.role==='admin'?await db.all('SELECT id,name,email,created_at FROM users WHERE family_id=? AND active=1 AND approved=0 ORDER BY created_at', user.family_id):[],
       preferences:await preferences(user.id),subscriptions:(await db.all('SELECT ancestor_id FROM subscriptions WHERE user_id=?', user.id)).map(x=>x.ancestor_id),
       memories:user.role==='admin'
         ? await db.all(memorySql+' ORDER BY m.created_at DESC LIMIT 300', user.family_id)
@@ -446,7 +478,7 @@ export async function createApp(config, options = {}) {
     await limit(db,'feed-ip:'+hash(req.ip),300,3600000);
     if(!/^[a-f0-9]{64}$/.test(req.params.token))throw new AppError(404,'Link lịch không còn hiệu lực.');
     const owner=await db.get('SELECT u.* FROM calendar_tokens c JOIN users u ON u.id=c.user_id WHERE c.token=? AND u.active=1', req.params.token);
-    if(!owner)throw new AppError(404,'Link lịch không còn hiệu lực. Hãy mở Cội và tạo link mới.');
+    if(!owner)throw new AppError(404,'Link lịch không còn hiệu lực. Hãy mở Đỗ Gia và tạo link mới.');
     res.type('text/calendar').set('Cache-Control','private, max-age=3600').send(await calendarFor(owner));
   });
   app.get('/api/calendar.ics',auth,async (req,res) => {
@@ -487,8 +519,8 @@ export async function createApp(config, options = {}) {
   app.use((error,req,res,next)=>{
     const status=error.status||(error.type==='entity.parse.failed'?400:error.type==='entity.too.large'?413:500);
     // Outside production the message is worth seeing; production keeps it out of the log.
-    if(status>=500)console.error('[Cội] Request failed:',config.production?error.name:error);
-    res.status(status).json({error:status<500?error.message:'Cội chưa xử lý được yêu cầu. Vui lòng thử lại sau.'});
+    if(status>=500)console.error('[Đỗ Gia] Request failed:',config.production?error.name:error);
+    res.status(status).json({error:status<500?error.message:'Đỗ Gia chưa xử lý được yêu cầu. Vui lòng thử lại sau.'});
   });
   return {app,db,mailer};
 }

@@ -17,7 +17,7 @@ class ErrorBoundary extends React.Component {
   state = { error: false };
   static getDerivedStateFromError() { return { error: true }; }
   render() {
-    if (this.state.error) return <main className="fatal"><h1>Cội cần tải lại một chút.</h1><p>Dữ liệu đã lưu trên máy chủ vẫn được giữ nguyên.</p><button onClick={() => location.reload()}>Tải lại trang</button></main>;
+    if (this.state.error) return <main className="fatal"><h1>Đỗ Gia cần tải lại một chút.</h1><p>Dữ liệu đã lưu trên máy chủ vẫn được giữ nguyên.</p><button onClick={() => location.reload()}>Tải lại trang</button></main>;
     return this.props.children;
   }
 }

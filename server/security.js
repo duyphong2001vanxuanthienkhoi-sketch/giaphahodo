@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual, scryptSync } from 'node:crypto';
 export const hash = value => createHash('sha256').update(String(value)).digest('hex');
 export const token = () => randomBytes(32).toString('hex');
 export const otpHash = (secret, id, code) => createHmac('sha256', secret).update(id + ':' + code).digest('hex');
@@ -17,4 +17,18 @@ export async function limit(db, scope, maximum, windowMs, now = Date.now()) {
 }
 export function readCookie(req, name) {
   return (req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith(name + '='))?.slice(name.length + 1);
+}
+
+/** Mật khẩu của thành viên được băm bằng scrypt kèm muối riêng, không dùng chung
+ * hàm hash() nhanh ở trên — hàm đó dành cho token ngẫu nhiên, không chịu nổi dò. */
+export function hashPassword(plain) {
+  const salt = randomBytes(16).toString('hex');
+  return 'scrypt$' + salt + '$' + scryptSync(String(plain), salt, 64).toString('hex');
+}
+export function verifyPassword(plain, stored) {
+  const parts = String(stored || '').split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const expected = Buffer.from(parts[2], 'hex');
+  const actual = scryptSync(String(plain), parts[1], expected.length);
+  return expected.length > 0 && timingSafeEqual(expected, actual);
 }

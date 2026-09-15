@@ -11,7 +11,7 @@ export function getConfig(overrides = {}) {
     production,
     port: Number(process.env.PORT || 3001),
     appUrl: process.env.APP_URL || 'http://localhost:5173',
-    // Set DATABASE_URL to run on Postgres/Neon; otherwise Cội uses the SQLite file.
+    // Set DATABASE_URL to run on Postgres/Neon; otherwise Đỗ Gia uses the SQLite file.
     databaseUrl: process.env.DATABASE_URL || '',
     dbPath: resolve(process.env.DATABASE_PATH || './data/coi.sqlite'),
     uploadDir: resolve(process.env.UPLOAD_DIR || './data/uploads'),
@@ -24,7 +24,7 @@ export function getConfig(overrides = {}) {
     mailDriver: process.env.MAIL_DRIVER || 'preview',
     brevoKey: process.env.BREVO_API_KEY || '',
     brevoFrom: (process.env.BREVO_TU_EMAIL || '').trim(),
-    brevoName: process.env.BREVO_TU_TEN || process.env.FAMILY_NAME || 'Cội',
+    brevoName: process.env.BREVO_TU_TEN || process.env.FAMILY_NAME || 'Đỗ Gia',
     remindersEnabled: process.env.REMINDERS_ENABLED === 'true',
     trustProxy: process.env.TRUST_PROXY === 'true',
     // Vercel Cron signs its call with this; without it the endpoint stays shut.

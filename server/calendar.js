@@ -1,4 +1,4 @@
-import { occurrences, observanceEvents, spanEvents } from '../shared/lunar.js';
+import { occurrences, observanceEvents, birthdayEvents, spanEvents } from '../shared/lunar.js';
 
 const escape = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
 const stamp = (at = new Date()) => at.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -32,7 +32,10 @@ export function buildCalendar({ familyName, ancestors, observanceKeys = [], from
   const observed = spanEvents(from, to, (a, b) => observanceEvents(observanceKeys, a, b)).map(e => ({...e,
     uid: `obs-${e.obsKey}-${e.date}@coi`, title: e.name, category: 'Việc họ', sequence: 1, location: '',
     description: `${e.lunar_day}/${e.lunar_month} âm lịch.`}));
-  const events = [...memorials, ...observed].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, 'vi'));
+  const birthdays = spanEvents(from, to, (a, b) => birthdayEvents(ancestors, a, b)).map(e => ({...e,
+    uid: `bd-${e.id}-${e.date}@coi`, title: `Sinh nhật ${e.name}`, category: 'Sinh nhật', sequence: e.revision || 1, location: '',
+    description: `Tròn ${e.turning} tuổi.`}));
+  const events = [...memorials, ...observed, ...birthdays].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, 'vi'));
   const now = stamp(exportedAt);
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Coi//Lich ngay gio//VI', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     `X-WR-CALNAME:${escape('Ngày giỗ · ' + familyName)}`,

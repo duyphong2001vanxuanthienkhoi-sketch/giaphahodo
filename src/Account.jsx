@@ -40,7 +40,7 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
 
         {tab==='reminders'&&<>
           <form onSubmit={e=>save(e,'/preferences',{enabled:prefs.enabled,days:prefs.days,hour:prefs.hour,minute:prefs.minute,all_events:prefs.all_events})}>
-            <div className="settings-title"><h2>Để không lỡ một ngày nhớ</h2><p>Chọn thời điểm nhắc. Cội dùng đúng lựa chọn này cho cả email và lịch trên điện thoại.</p></div>
+            <div className="settings-title"><h2>Để không lỡ một ngày nhớ</h2><p>Chọn thời điểm nhắc. Đỗ Gia dùng đúng lựa chọn này cho cả email và lịch trên điện thoại.</p></div>
             <label className="switch-row"><div><strong>Bật nhắc lịch ngày giỗ</strong><p>Lời nhắc qua email {data.user.email}</p></div><input type="checkbox" className="switch" checked={prefs.enabled} onChange={e=>setPrefs({...prefs,enabled:e.target.checked})}/></label>
             <fieldset disabled={!prefs.enabled}><legend>Nhắc trước bao lâu?</legend>
               <div className="reminder-day-options">{REMINDER_DAYS.map(day=><label key={day} className={prefs.days.includes(day)?'checked':''}><input type="checkbox" checked={prefs.days.includes(day)} onChange={()=>toggleDay(day)}/><span>{dayLabel(day)}</span></label>)}</div>
@@ -64,7 +64,7 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
             <Field label="Nhà thờ họ / nơi sum họp" wide><textarea rows={3} maxLength={300} value={family.home} onChange={e=>setFamily({...family,home:e.target.value})}/></Field>
           </div>
           <fieldset><legend><Sparkles/>Ngày lệ của dòng họ</legend>
-            <p className="hint">Những ngày này hiện trên lịch và trong lịch đã đăng ký trên điện thoại. Cội không gửi email cho ngày lệ, để hộp thư của cả nhà không bị đầy.</p>
+            <p className="hint">Những ngày này hiện trên lịch và trong lịch đã đăng ký trên điện thoại. Đỗ Gia không gửi email cho ngày lệ, để hộp thư của cả nhà không bị đầy.</p>
             <div className="rite-options">{OBSERVANCES.map(rite=><label key={rite.key} className={family.observances.includes(rite.key)?'checked':''}><input type="checkbox" checked={family.observances.includes(rite.key)} onChange={()=>toggleRite(rite.key)}/><span>{rite.name}</span></label>)}</div>
           </fieldset>
           <div className="settings-footer"><Button type="submit" variant="primary" disabled={busy}><Save/>{busy?'Đang lưu…':'Lưu thông tin dòng họ'}</Button></div>
@@ -90,7 +90,7 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
                 <div><strong>{person.name}</strong><span>Đời thứ {person.generation} · {person.branch} · giỗ {pad(person.lunar_day)}/{pad(person.lunar_month)} âm</span><small>Đã xóa {new Date(person.deleted_at).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</small></div>
                 <div className="trash-actions">
                   <Button variant="text" disabled={busy} onClick={()=>setConfirm({title:'Khôi phục người thân?',description:`${person.name} sẽ trở lại gia phả, lịch ngày giỗ và miền ký ức như cũ.`,path:`/ancestors/${person.id}/restore`,method:'POST',label:'Khôi phục',done:'Đã khôi phục người thân.'})}><RotateCcw/>Khôi phục</Button>
-                  <Button variant="text" className="danger" disabled={busy} onClick={()=>setConfirm({title:'Xóa hẳn khỏi Cội?',description:`Toàn bộ thông tin, ảnh và ký ức về ${person.name} sẽ mất vĩnh viễn. Không thể hoàn tác.`,path:'/trash/'+person.id,method:'DELETE',label:'Xóa vĩnh viễn',done:'Đã xóa hẳn bản ghi.',danger:true})}><Trash2/>Xóa hẳn</Button>
+                  <Button variant="text" className="danger" disabled={busy} onClick={()=>setConfirm({title:'Xóa hẳn khỏi Đỗ Gia?',description:`Toàn bộ thông tin, ảnh và ký ức về ${person.name} sẽ mất vĩnh viễn. Không thể hoàn tác.`,path:'/trash/'+person.id,method:'DELETE',label:'Xóa vĩnh viễn',done:'Đã xóa hẳn bản ghi.',danger:true})}><Trash2/>Xóa hẳn</Button>
                 </div>
               </div>)}
           </section>

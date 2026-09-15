@@ -16,6 +16,8 @@ export const ancestorSchema = z.object({
   lunar_day: z.number().int().min(1).max(30), lunar_month: z.number().int().min(1).max(12),
   leap_policy: z.enum(['regular','prefer-leap','both']), short_month_policy: z.enum(['last-day','skip']),
   location: text(300), biography: text(5000), note: text(2000),
+  // Cả SQLite lẫn Postgres đều không nhận boolean cho cột INTEGER, nên ép ngay tại đây.
+  living: z.boolean().transform(v => v ? 1 : 0), birth_date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Ngày sinh phải có dạng YYYY-MM-DD.'), phone: text(25),
 }).strict().refine(v => !v.birth_year || !v.death_year || v.birth_year <= v.death_year, {message:'Năm mất phải sau hoặc bằng năm sinh.'});
 export const preferenceSchema = z.object({
   enabled: z.boolean(), days: z.array(z.number().int().refine(d=>REMINDER_DAYS.includes(d),{message:'Mốc nhắc không hợp lệ.'})).max(REMINDER_DAYS.length),
@@ -33,3 +35,8 @@ export const attendanceSchema = z.object({
   event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 }).strict();
 export const photoSchema = z.object({ data: z.string().max(6_000_000), caption: text(200).default('') }).strict();
+
+export const registerSchema = z.object({
+  name: text(80).min(2), email: emailSchema,
+  password: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự.').max(200),
+}).strict();

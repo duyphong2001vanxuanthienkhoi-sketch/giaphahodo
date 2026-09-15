@@ -1,4 +1,4 @@
-/* Cội · service worker.
+/* Đỗ Gia · service worker.
  * Deliberately narrow: family data is never cached, only the app shell and the
  * content-hashed build assets. A hashed asset can never go stale under its own
  * name, and the shell is fetched network-first so a deploy is picked up at once.
@@ -29,7 +29,7 @@ self.addEventListener('fetch', event => {
         return fresh;
       } catch {
         return (await caches.match(SHELL)) || new Response(
-          '<meta charset="utf-8"><p style="font:16px system-ui;padding:24px">Cội cần mạng để mở lần này. Hãy thử lại khi có kết nối.</p>',
+          '<meta charset="utf-8"><p style="font:16px system-ui;padding:24px">Đỗ Gia cần mạng để mở lần này. Hãy thử lại khi có kết nối.</p>',
           { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       }
     })());

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { createApp } from '../server/app.js';
 import { getConfig } from '../server/config.js';
 import { openDatabase } from '../server/db.js';
+import { testDatabase } from './database.js';
 import { runReminders } from '../server/reminders.js';
 import { lunarDate } from '../shared/lunar.js';
 
@@ -14,10 +15,7 @@ async function fixture(t,overrides={}) {
   const dir=mkdtempSync(join(tmpdir(),'coi-test-'));
   const outbox=[];
   const config=getConfig({production:false,dbPath:join(dir,'db.sqlite'),secret:'test-secret-that-is-at-least-32-characters',demo:true,remindersEnabled:false,adminEmail:'admin@example.test',appUrl:'http://localhost:5173',...overrides});
-  // One Neon database, one throwaway schema per fixture, so the same suite proves
-  // both engines. Without DATABASE_URL it stays on a temp SQLite file.
-  const schema = process.env.DATABASE_URL ? 'test_' + randomUUID().replaceAll('-','').slice(0,12) : '';
-  const target = process.env.DATABASE_URL || config.dbPath;
+  const { target, schema } = testDatabase(config.dbPath);
   const db = await openDatabase(target, { schema });
   const context=await createApp(config,{db,mailer:{send:async mail=>{outbox.push(mail);return {preview:true};}}});
   const server=await new Promise(resolve=>{const s=context.app.listen(0,'127.0.0.1',()=>resolve(s));});
@@ -32,7 +30,7 @@ async function fixture(t,overrides={}) {
   const loginDemo=async(role='admin')=>(await request('/auth/demo',{method:'POST',body:{role}})).cookie;
   return {...context,config,schema,target,outbox,request,loginDemo};
 }
-const person={name:'Cụ Nguyễn Test',generation:2,branch:'Chi thử',birth_year:1910,death_year:1980,parent_id:null,spouse_id:null,lunar_day:15,lunar_month:8,leap_policy:'regular',short_month_policy:'last-day',location:'Nhà thờ họ',biography:'Ký ức được lưu lại.',note:''};
+const person={name:'Cụ Nguyễn Test',generation:2,branch:'Chi thử',birth_year:1910,death_year:1980,parent_id:null,spouse_id:null,lunar_day:15,lunar_month:8,leap_policy:'regular',short_month_policy:'last-day',location:'Nhà thờ họ',biography:'Ký ức được lưu lại.',note:'',living:false,birth_date:'',phone:''};
 test('Chặn người chưa đăng nhập, thành viên không được sửa; quản lý CRUD và dữ liệu tồn tại sau khi mở lại DB',async t=>{
   const f=await fixture(t);
   assert.equal((await f.request('/bootstrap')).status,401);

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createApp } from '../server/app.js';
 import { openDatabase } from '../server/db.js';
+import { testDatabase } from './database.js';
 import { getConfig } from '../server/config.js';
 import { alarmTrigger } from '../server/calendar.js';
 import { occurrences, todayInVietnam, addDays, observanceEvents } from '../shared/lunar.js';
@@ -23,10 +24,7 @@ async function fixture(t, overrides = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coi-feature-'));
   const outbox = [];
   const config = getConfig({production:false,dbPath:join(dir,'db.sqlite'),uploadDir:join(dir,'uploads'),secret:'test-secret-that-is-at-least-32-characters',demo:true,remindersEnabled:false,adminEmail:'admin@example.test',appUrl:'http://localhost:5173',...overrides});
-  // One Neon database, one throwaway schema per fixture, so the same suite proves
-  // both engines. Without DATABASE_URL it stays on a temp SQLite file.
-  const schema = process.env.DATABASE_URL ? 'test_' + randomUUID().replaceAll('-','').slice(0,12) : '';
-  const target = process.env.DATABASE_URL || config.dbPath;
+  const { target, schema } = testDatabase(config.dbPath);
   const db = await openDatabase(target, { schema });
   const context = await createApp(config, {db, mailer:{send:async m=>{outbox.push(m);return {preview:true};}}});
   const server = await new Promise(resolve=>{const s=context.app.listen(0,'127.0.0.1',()=>resolve(s));});
@@ -275,7 +273,8 @@ test('Vợ chồng nối hai chiều, đổi bạn đời thì giải phóng li�
   const edit = (target,changes) => f.request('/ancestors/'+target.id,{method:'PUT',cookie:admin,
     body:{name:target.name,generation:target.generation,branch:target.branch,birth_year:target.birth_year,death_year:target.death_year,
       parent_id:target.parent_id,spouse_id:null,lunar_day:target.lunar_day,lunar_month:target.lunar_month,leap_policy:target.leap_policy,
-      short_month_policy:target.short_month_policy,location:target.location,biography:target.biography,note:target.note,...changes}});
+      short_month_policy:target.short_month_policy,location:target.location,biography:target.biography,note:target.note,
+      living:!!target.living,birth_date:target.birth_date||'',phone:target.phone||'',...changes}});
   const spouseOf = async id => (await f.request('/bootstrap',{cookie:admin})).data.ancestors.find(a=>a.id===id).spouse_id;
 
   assert.equal((await edit(ong,{spouse_id:ong.id})).status,400,'không thể là vợ/chồng của chính mình');
@@ -302,7 +301,7 @@ test('Vợ chồng nối hai chiều, đổi bạn đời thì giải phóng li�
   const outsider = (await f.request('/auth/verify',{method:'POST',body:{challengeId:challenge.data.challengeId,code}})).cookie;
   const stranger = await f.request('/ancestors',{method:'POST',cookie:outsider,body:{
     name:'Cụ Nhà Khác',generation:1,branch:'Chi khác',birth_year:null,death_year:null,parent_id:null,spouse_id:null,
-    lunar_day:5,lunar_month:5,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:''}});
+    lunar_day:5,lunar_month:5,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',living:false,birth_date:'',phone:''}});
   assert.equal(stranger.status,201);
   assert.equal((await edit(ong,{spouse_id:stranger.data.id})).status,404,'không nối được với người ngoài dòng họ');
 });
@@ -407,6 +406,61 @@ test('Nhật ký ghi lại tài khoản mới, lần đăng nhập và lần tr�
   const dump = JSON.stringify(log);
   assert.ok(!dump.includes('phong2001'),'nhật ký không được chứa mật khẩu');
   assert.ok(!dump.includes('ip_hash')&&!dump.includes('127.0.0.1'),'không trả IP ra ngoài');
+});
+
+test('Tự đăng ký phải chờ duyệt mới vào được', async t => {
+  const f = await fixture(t,{adminPassword:'phong2001',adminEmail:'quanly@example.test'});
+  const admin = (await f.request('/auth/password',{method:'POST',body:{email:'quanly@example.test',password:'phong2001'}})).cookie;
+
+  const reg = await f.request('/auth/register',{method:'POST',body:{name:'Đỗ Văn Cháu',email:'chau@example.test',password:'mat-khau-cua-chau'}});
+  assert.equal(reg.status,201);
+  assert.equal(reg.data.pending,true);
+  assert.equal((await f.request('/auth/register',{method:'POST',body:{name:'Trùng',email:'chau@example.test',password:'mat-khau-khac'}})).status,409,'không cho đăng ký trùng email');
+  assert.equal((await f.request('/auth/register',{method:'POST',body:{name:'Ngắn',email:'ngan@example.test',password:'1234'}})).status,400,'mật khẩu quá ngắn phải bị chặn');
+
+  // Chưa duyệt thì đúng mật khẩu cũng không vào được — đây là chỗ giữ kín danh bạ.
+  const blocked = await f.request('/auth/password',{method:'POST',body:{email:'chau@example.test',password:'mat-khau-cua-chau'}});
+  assert.equal(blocked.status,403);
+  assert.match(blocked.data.error,/chờ/);
+
+  const waiting = (await f.request('/bootstrap',{cookie:admin})).data.pendingMembers;
+  assert.equal(waiting.length,1);
+  assert.equal(waiting[0].email,'chau@example.test');
+
+  assert.equal((await f.request('/members/'+waiting[0].id+'/approve',{method:'POST',cookie:admin})).status,200);
+  const ok = await f.request('/auth/password',{method:'POST',body:{email:'chau@example.test',password:'mat-khau-cua-chau'}});
+  assert.equal(ok.status,200);
+  assert.equal(ok.data.user.role,'member');
+  assert.equal((await f.request('/bootstrap',{cookie:ok.cookie})).status,200);
+  assert.equal((await f.request('/auth/password',{method:'POST',body:{email:'chau@example.test',password:'sai-be-bet'}})).status,401);
+
+  const log = (await f.request('/bootstrap',{cookie:admin})).data.auditLog.map(r=>r.action);
+  assert.ok(log.includes('dang-ky-moi')&&log.includes('duyet-tai-khoan'),'nhật ký phải ghi cả lúc đăng ký lẫn lúc duyệt');
+});
+
+test('Người còn sống: không có ngày giỗ, không lộ ra ngoài, có sinh nhật trên lịch', async t => {
+  const f = await fixture(t), admin = await f.loginDemo();
+  const alive = {name:'Đỗ Văn Minh',generation:5,branch:'Chi trưởng',birth_year:null,death_year:null,parent_id:null,spouse_id:null,
+    lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',
+    living:true,birth_date:'1990-03-15',phone:'0900111222'};
+  assert.equal((await f.request('/ancestors',{method:'POST',cookie:admin,body:alive})).status,201);
+
+  const boot = (await f.request('/bootstrap',{cookie:admin})).data;
+  const saved = boot.ancestors.find(a=>a.name==='Đỗ Văn Minh');
+  assert.ok(saved,'thành viên đã đăng nhập phải thấy người còn sống');
+  assert.equal(saved.phone,'0900111222');
+
+  // Khách không được thấy người còn sống, càng không thấy số điện thoại.
+  const guest = (await f.request('/public')).data;
+  assert.ok(!guest.ancestors.some(a=>a.name==='Đỗ Văn Minh'),'người còn sống không nằm trong bản công khai');
+  assert.ok(!JSON.stringify(guest).includes('0900111222'),'số điện thoại không được lọt ra ngoài');
+
+  // Không sinh ngày giỗ, nhưng có sinh nhật trong feed.
+  assert.equal(occurrences([{...saved}],'2026-01-01','2026-12-31').length,0,'người còn sống không có ngày giỗ');
+  const feed = (await f.request(new URL(boot.calendar.url).pathname.replace('/api',''))).data;
+  assert.match(feed,/SUMMARY:Sinh nhật Đỗ Văn Minh/);
+  assert.match(feed,/CATEGORIES:Sinh nhật/);
+  assert.doesNotMatch(feed,/SUMMARY:Ngày giỗ Đỗ Văn Minh/);
 });
 
 test('Gửi mail qua Brevo: đúng địa chỉ API, đúng khóa, và lỗi thì báo ra', async () => {
