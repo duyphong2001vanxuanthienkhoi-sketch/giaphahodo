@@ -101,7 +101,7 @@ export default function App(){
             onEdit={()=>{setActionError('');setModal({type:'edit',person:activePerson});}}
             onDeleteRequest={()=>{setActionError('');setModal({type:'delete',person:activePerson});}}/>
         : <PersonMissing go={go}/>)}
-      {!['overview','calendar','family','memories','members','account','person'].includes(section)&&<Empty title="Trang này chưa có trong Cội." description="Bạn có thể quay lại lịch gia đình." action={<Button onClick={()=>go('overview')}>Về tổng quan</Button>}/>}
+      {(!['overview','calendar','family','memories','members','account','person'].includes(section)||(guest&&(section==='account'||section==='members')))&&<Empty title="Trang này chưa có trong Cội." description="Bạn có thể quay lại lịch gia đình." action={<Button onClick={()=>go('overview')}>Về tổng quan</Button>}/>}
       <footer className="app-footer"><span>{data.family.name}</span><span>Lưu giữ hôm qua. Gắn kết hôm nay.</span></footer>
     </main></div>{toast&&<div className="toast" role="status"><Check/>{toast}<button onClick={()=>setToast('')} aria-label="Đóng thông báo"><X/></button></div>}
       {modal?.type==='edit'&&<AncestorForm ancestor={modal.person} ancestors={data.ancestors} onClose={()=>setModal(null)} onSaved={async()=>{await reload();setToast('Đã lưu ngày giỗ của người thân.');}}/>}

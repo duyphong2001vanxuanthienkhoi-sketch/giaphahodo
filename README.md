@@ -16,9 +16,11 @@ Cội là một web app cho dòng họ: lưu ngày giỗ theo âm lịch Việt 
 - Miền ký ức mở cho cả nhà: thành viên gửi kỷ niệm, người quản lý duyệt trước khi hiển thị.
 - Điểm danh ngày giỗ: ai về được, ai chưa chắc, kèm lời nhắn cho gia đình.
 - Ngày lệ của dòng họ: Tết, rằm tháng Giêng, Giỗ Tổ, Vu Lan, Trung thu, ông Công ông Táo, mùng 1 và rằm hằng tháng — bật tắt theo nếp từng nhà.
-- Đăng nhập không dùng mật khẩu: mã OTP một lần gửi qua email.
-- Dòng họ riêng tư: chỉ tài khoản được mời mới vào được; quản lý có thể mời, đổi quyền hoặc thu hồi thành viên.
-- Lời nhắc cá nhân theo email: đúng ngày, trước 1, 3, 7, 14 hoặc 30 ngày, theo giờ Việt Nam.
+- **Khách xem được phần tưởng nhớ** mà không cần đăng nhập: gia phả, lịch ngày giỗ, ảnh, ký ức đã duyệt. Đặt `PUBLIC_VIEW=false` để đóng lại như cũ.
+- **Người còn sống thì không công khai**: email, số điện thoại, danh sách thành viên, điểm danh, lời mời và cài đặt nhắc luôn phải đăng nhập, kể cả khi đang mở cho khách.
+- Hai đường đăng nhập: **mật khẩu quản lý** (`ADMIN_PASSWORD`, không cần email) và **mã OTP** gửi qua email. Lần đăng nhập đầu bằng mật khẩu dựng luôn dòng họ, nên dựng được hệ thống mà chưa cần cấu hình mail.
+- Quản lý mời thành viên bằng link, đổi quyền hoặc thu hồi truy cập.
+- Lời nhắc cá nhân theo email: đúng ngày, trước 1, 3, 7, 14 hoặc 30 ngày, theo giờ Việt Nam. Gửi qua **Brevo** (HTTPS, hợp serverless) hoặc **SMTP**.
 - **Lịch đăng ký cho điện thoại**: link `webcal://` riêng cho từng người, kèm báo thức `VALARM` đúng theo cài đặt nhắc. Xem mục bên dưới.
 - Thùng rác: xóa người thân là ẩn đi trước, khôi phục được, chỉ mất hẳn khi xóa lần hai.
 - Xuất toàn bộ dữ liệu dòng họ ra JSON cho gia đình tự giữ.
@@ -70,20 +72,23 @@ NODE_ENV=production
 APP_URL=https://ten-mien-cua-ban.example
 APP_SECRET=chuoi-ngau-nhien-it-nhat-32-ky-tu
 ADMIN_EMAIL=email-khoi-tao-dong-ho@example.com
-MAIL_DRIVER=smtp
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=...
-SMTP_PASS=...
-MAIL_FROM=Cội <no-reply@ten-mien-cua-ban.example>
+ADMIN_PASSWORD=mat-khau-quan-ly-it-nhat-12-ky-tu
+MAIL_DRIVER=brevo
+BREVO_API_KEY=...
+BREVO_TU_EMAIL=dia-chi-da-xac-minh@example.com
 REMINDERS_ENABLED=true
 TRUST_PROXY=false
 ```
 
-`APP_URL` phải là HTTPS trong production. `ADMIN_EMAIL` là địa chỉ duy nhất có thể khởi tạo dòng họ đầu tiên bằng OTP. Người quản lý sau đó tạo link mời trong mục **Thành viên**; link chỉ hiển thị một lần, hết hạn sau 7 ngày và nên gửi qua kênh riêng cho đúng người thân.
+`APP_URL` phải là HTTPS trong production. Phải còn ít nhất **một đường vào**: `ADMIN_PASSWORD`, hoặc `MAIL_DRIVER=smtp`/`brevo` để gửi mã OTP — Cội từ chối khởi động nếu không có đường nào. `ADMIN_EMAIL` là địa chỉ duy nhất có thể khởi tạo dòng họ đầu tiên bằng OTP. Người quản lý sau đó tạo link mời trong mục **Thành viên**; link chỉ hiển thị một lần, hết hạn sau 7 ngày và nên gửi qua kênh riêng cho đúng người thân.
 
-`MAIL_DRIVER=preview` chỉ dành cho local: email được ghi thành file `.eml` trong `data/mail/`, không gửi ra ngoài. Production bắt buộc dùng `MAIL_DRIVER=smtp` với nhà cung cấp SMTP của bạn.
+`MAIL_DRIVER` nhận ba giá trị:
+
+- `preview` — chỉ dành cho local: email ghi thành file `.eml` trong `data/mail/`, không gửi ra ngoài. **Không dùng được trên serverless** vì đĩa chỉ đọc.
+- `brevo` — gọi `api.brevo.com` qua HTTPS. Không cần cổng SMTP hay App Password, nên hợp Vercel nhất. Cần `BREVO_API_KEY` và `BREVO_TU_EMAIL` (địa chỉ đã xác minh trong Brevo → Senders).
+- `smtp` — nhà cung cấp SMTP của bạn, qua `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`.
+
+Không bật lời nhắc email thì đặt `REMINDERS_ENABLED=false`; báo thức trên lịch điện thoại vẫn chạy vì nó nổ trên máy người dùng, không cần máy chủ gửi gì.
 
 Khi dùng reverse proxy, chỉ bật `TRUST_PROXY=true` nếu máy chủ thật sự đứng sau đúng một proxy đáng tin cậy.
 
