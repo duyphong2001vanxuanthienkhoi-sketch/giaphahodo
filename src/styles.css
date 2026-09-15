@@ -476,3 +476,8 @@
 .sync-primary.android-truoc{flex-direction:column-reverse}
 .sync-primary.android-truoc .hint{order:-1}
 .sync-primary .hint{margin-top:2px}
+
+/* Tên người làm ra trang này, đặt giữa chân trang. Màn hình hẹp thì chân trang xuống
+   dòng, nên cho nó đứng riêng một dòng đủ chỗ thay vì bị kẹp giữa hai câu. */
+.footer-author{color:var(--gold);white-space:nowrap}
+@media(max-width:560px){.footer-author{order:3;width:100%}}
