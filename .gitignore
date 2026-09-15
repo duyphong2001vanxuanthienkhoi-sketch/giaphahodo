@@ -11,3 +11,6 @@ backups/
 .openai/
 test-results/
 coverage/
+
+# Cấu hình chạy thử tại máy, không thuộc về dự án.
+.claude/
