@@ -350,6 +350,21 @@ test('Khách xem được phần tưởng nhớ, nhưng không thấy gì về n
   assert.equal((await f.request('/bootstrap')).status,401,'khách vẫn không vào được dữ liệu thành viên');
   assert.equal((await f.request('/photos/'+photo.data.id)).status,200,'ảnh xem được khi đã mở công khai');
 
+  // Ảnh người còn sống là chuyện khác hẳn với ảnh phần tưởng nhớ. Bản công khai
+  // không hề nhắc tới người còn sống, nên mã ảnh của họ không có đường nào ra
+  // ngoài — nhưng "không ai biết mã" không phải là một lớp khoá. Mã lọt ra theo
+  // một đường dẫn được chia sẻ, một lần bấm nhầm nút chuyển tiếp, là xong.
+  const song = await f.request('/ancestors',{method:'POST',cookie:admin,body:{
+    name:'Đỗ Còn Sống',generation:3,branch:'Chi khác',birth_year:1990,death_year:null,parent_id:null,spouse_id:null,
+    lunar_day:1,lunar_month:1,leap_policy:'regular',short_month_policy:'last-day',location:'',biography:'',note:'',
+    living:true,birth_date:'',phone:'',birth_order:0}});
+  assert.equal(song.status,201);
+  const anhSong = await f.request(`/ancestors/${song.data.id}/photos`,{method:'POST',cookie:admin,body:photoBody});
+  assert.equal(anhSong.status,201);
+  assert.equal((await f.request('/photos/'+anhSong.data.id,{cookie:member})).status,200,'thành viên vẫn xem được ảnh người còn sống');
+  assert.equal((await f.request('/photos/'+anhSong.data.id)).status,404,
+    'khách chưa đăng nhập không được xem ảnh của người còn sống, dù có đúng mã ảnh');
+
   const kin = await fixture(t,{publicView:false});
   const keeper = await kin.loginDemo();
   const kept = await kin.request(`/ancestors/${(await kin.request('/bootstrap',{cookie:keeper})).data.ancestors[0].id}/photos`,{method:'POST',cookie:keeper,body:photoBody});

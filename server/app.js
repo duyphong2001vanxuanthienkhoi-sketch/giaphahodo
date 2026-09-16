@@ -500,9 +500,13 @@ export async function createApp(config, options = {}) {
     next();
   };
   app.get('/api/photos/:id',photoViewer,async (req,res) => {
+    // Khách chưa đăng nhập chỉ với tới được ảnh của người đã khuất. Bản công khai
+    // không hề nhắc tới người còn sống nên mã ảnh của họ không có đường nào ra
+    // ngoài — nhưng "không ai đoán ra mã" không phải là một lớp khoá: mã lọt ra
+    // theo một đường dẫn được chia sẻ hay một lần chuyển tiếp nhầm là xong.
     const photo = req.user
       ? await db.get('SELECT * FROM photos WHERE id=? AND family_id=?', req.params.id,req.user.family_id)
-      : await db.get('SELECT * FROM photos WHERE id=?', req.params.id);
+      : await db.get('SELECT p.* FROM photos p JOIN ancestors a ON a.id=p.ancestor_id WHERE p.id=? AND a.living=0 AND a.deleted_at IS NULL', req.params.id);
     if(!photo)throw new AppError(404,'Không tìm thấy ảnh.');
     // Ảnh chờ duyệt chỉ người quản lý và chính người góp mới xem được. Nếu không chặn ở
     // đây thì chỉ cần đoán đúng id là ảnh chưa duyệt hiện ra với bất kỳ ai.
