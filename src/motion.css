@@ -1,0 +1,223 @@
+@charset "UTF-8";
+/* ===================================================================
+   Chuyển động toàn trang — theo bộ Đỗ Gia Motion v2.
+
+   Ba tầng, không bao giờ lẫn vào nhau:
+     1. Thao tác  — phản hồi ngắn khi bấm, chọn, mở, gập.
+     2. Dẫn hướng — cho biết nội dung đi đâu khi đổi mục hay mở nhánh.
+     3. Không khí — quầng sáng, hạt sáng; luôn nhẹ hơn nội dung chính.
+
+   Màu sắc và bố cục nằm hết ở styles.css; tệp này chỉ nói về thời gian.
+   =================================================================== */
+
+:root{
+  /* Thông số dùng chung, lấy đúng bảng thời lượng của bộ thiết kế. */
+  --mo-bam:150ms;    /* bấm nút, đổi trạng thái      120–180 */
+  --mo-cham:220ms;   /* rê chuột, đổi viền, đổ bóng  180–260 */
+  --mo-bang:380ms;   /* bảng thông tin, hộp thoại    320–450 */
+  --mo-trang:340ms;  /* chuyển mục                   280–420 */
+  --mo-xep:700ms;    /* sắp lại cây sau khi gập/mở   550–750 */
+  --mo-dua:820ms;    /* đưa vùng xem tới một nhánh   650–900 */
+  --mo-ve:1020ms;    /* vẽ đường nối lần đầu       900–1100 */
+  --mo-mau:540ms;    /* chuyển sáng/tối              450–650 */
+  --mo-nhip:70ms;    /* khoảng lệch giữa hai nhóm     60–100 */
+
+  --ra:cubic-bezier(.2,.7,.25,1);    /* mở ra, trượt vào */
+  --diu:cubic-bezier(.2,.75,.25,1);  /* chạy vị trí, sắp lại cây */
+  --nhanh:cubic-bezier(.22,.61,.36,1);
+}
+
+/* ---- Tắt chuyển động -------------------------------------------------
+   Người đã xin giảm chuyển động, hoặc tự bấm nút tạm dừng. Rút thời lượng
+   về gần không chứ không "animation:none": hiệu ứng nào cũng chạy tới
+   khung cuối rồi dừng, nên nội dung hiện đủ ngay thay vì kẹt ở độ mờ 0. */
+:root[data-motion=off] *,
+:root[data-motion=off] *::before,
+:root[data-motion=off] *::after{
+  animation-duration:1ms!important;animation-delay:0ms!important;
+  animation-iteration-count:1!important;
+  transition-duration:1ms!important;transition-delay:0ms!important;
+  scroll-behavior:auto!important}
+:root[data-motion=off] .mo-khong-khi{display:none}
+
+/* Tab bị ẩn thì vòng lặp trang trí dừng lại — không việc gì phải vẽ quầng
+   sáng cho một trang không ai nhìn. */
+:root[data-an="1"] .mo-khong-khi *,
+:root[data-an="1"] .tree-face.dang-tai{animation-play-state:paused!important}
+
+@keyframes mo-len{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes mo-the{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes mo-hien{from{opacity:0}to{opacity:1}}
+@keyframes mo-truot{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes mo-sang-trai{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes mo-sang-phai{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes mo-so{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:none}}
+@keyframes mo-quang{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(48px,-20px) scale(1.14)}}
+@keyframes mo-bui{0%{opacity:0;transform:translate3d(0,18px,0)}18%{opacity:.22}82%{opacity:.18}100%{opacity:0;transform:translate3d(22px,-104px,0)}}
+@keyframes mo-tho{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+
+/* ---- Mở trang lần đầu ------------------------------------------------
+   Khung, thanh đầu rồi nội dung, mỗi nhóm cách nhau một nhịp. Cả trang
+   hiện xong trong khoảng một giây. */
+.app-shell>.sidebar{animation:mo-hien .5s var(--ra) both}
+.workspace>.topbar{animation:mo-len .6s calc(var(--mo-nhip)) var(--ra) both}
+.workspace>.main-content{animation:mo-len .68s calc(var(--mo-nhip) * 2) var(--ra) both}
+/* Trên điện thoại sidebar là ngăn kéo trượt ngang; đừng chồng thêm một
+   hiệu ứng nữa lên nó. */
+@media(max-width:760px){.app-shell>.sidebar{animation:none}}
+
+.app-loading .brand{animation:mo-tho 2.4s ease-in-out infinite}
+.fatal>*{animation:mo-len .5s var(--ra) both}
+.fatal>*:nth-child(2){animation-delay:.07s}
+.fatal>*:nth-child(3){animation-delay:.14s}
+.fatal>*:nth-child(4){animation-delay:.21s}
+
+/* ---- Chuyển giữa các mục --------------------------------------------
+   Khung điều hướng đứng yên, chỉ nội dung mờ vào và dâng lên. Không có
+   màn chuyển cảnh riêng, không chặn thao tác để chờ chạy xong. */
+.page-view{animation:mo-len var(--mo-trang) var(--ra) both}
+
+/* ---- Điều hướng ------------------------------------------------------ */
+.nav-link{transition:background var(--mo-cham),color var(--mo-cham),border-color var(--mo-cham)}
+.nav-link:not(.active):hover{transform:translateX(2px)}
+.nav-link{transition:background var(--mo-cham),color var(--mo-cham),border-color var(--mo-cham),transform var(--mo-bam)}
+.nav-link .nav-caret{animation:mo-sang-phai var(--mo-cham) var(--ra) both}
+.mobile-tabs .tab-ico{transition:background var(--mo-bam) var(--nhanh),color var(--mo-bam),transform var(--mo-cham) var(--ra)}
+.mobile-tabs .tab.active .tab-ico{transform:translateY(-2px)}
+.mobile-tabs .tab:active .tab-ico{transform:translateY(0) scale(.94)}
+.nav-overlay{animation:mo-hien var(--mo-bam) ease both}
+.demo-banner{animation:mo-len .45s var(--ra) both}
+
+/* ---- Nút và ô bấm ----------------------------------------------------
+   Rê chuột thì nâng lên; bấm thì lún đúng một pixel. Vùng bấm không đổi
+   chỗ, nên ngón tay đặt đâu vẫn trúng đó. */
+.button{transition:background var(--mo-bam),border-color var(--mo-bam),color var(--mo-bam),
+  transform var(--mo-cham) var(--ra),box-shadow var(--mo-cham)}
+.button:hover:not(:disabled){transform:translateY(-2px)}
+.button:active:not(:disabled){transform:translateY(1px);transition-duration:60ms}
+.button svg{transition:transform var(--mo-cham) var(--ra)}
+.button.text:hover svg,.button:hover svg.lucide-arrow-up-right{transform:translate(2px,-2px)}
+.icon-button{transition:background var(--mo-bam),color var(--mo-bam),border-color var(--mo-bam),transform var(--mo-cham) var(--ra)}
+.icon-button:hover{transform:translateY(-2px)}
+.icon-button:active{transform:translateY(1px);transition-duration:60ms}
+.theme-toggle svg,.motion-toggle svg{transition:transform var(--mo-bang) var(--ra),opacity var(--mo-bam)}
+.theme-toggle:hover svg{transform:rotate(22deg)}
+.segmented button,.attend-choice,.rite-options label,.tree-tools button,.tree-view-tabs button{
+  transition:background var(--mo-bam),border-color var(--mo-bam),color var(--mo-bam),transform var(--mo-bam)}
+.segmented button:active,.attend-choice:active,.tree-tools button:active{transform:translateY(1px)}
+
+/* ---- Thẻ và hàng -----------------------------------------------------
+   Nâng nhẹ khi rê chuột, viền đồng sáng lên. Tối đa năm pixel, đúng như
+   quy chuẩn: đủ để biết là bấm được, chưa tới mức nhấp nhô. */
+.event-row,.memory-card,.ancestor-node,.living-card,.rite-card,.relation-link,.attend-row,
+.photo-grid figure,.guest-cta,.family-strip{
+  transition:transform var(--mo-cham) var(--ra),border-color var(--mo-cham),
+    background var(--mo-cham),box-shadow var(--mo-cham)}
+.memory-card:hover,.ancestor-node:hover,.living-card:hover{transform:translateY(-4px);border-color:var(--border-strong)}
+.relation-link:hover,.attend-row:hover{transform:translateX(3px)}
+.event-row:hover{background:var(--shadow-soft)}
+.event-row .date-stamp{transition:transform var(--mo-cham) var(--ra),border-color var(--mo-cham)}
+.event-row:hover .date-stamp{transform:scale(1.04)}
+.avatar{transition:transform var(--mo-cham) var(--ra),box-shadow var(--mo-cham)}
+.event-row:hover .avatar,.memory-card:hover .avatar,.living-card:hover .avatar{transform:scale(1.06)}
+.status-dot{animation:mo-tho 2.6s ease-in-out infinite}
+/* Ảnh phóng nhẹ bên trong khung; khung và bố cục không nhúc nhích. */
+.photo-grid figure img,.memory-card .avatar img{transition:transform var(--mo-bang) var(--ra)}
+.photo-grid figure:hover img{transform:scale(1.035)}
+.lightbox{animation:mo-the .32s var(--ra) both}
+/* Ngày giỗ gần nhất: con số chỉ đổi khi dữ liệu đổi, và đổi đúng một lần. */
+.countdown b{animation:mo-so .42s var(--ra) both}
+.event-hero{animation:mo-the .55s var(--ra) both}
+
+/* Các hàng hiện lệch nhịp nhau; cả khối xong trong sáu phần mười giây. */
+.mo-dan>*{animation:mo-len .42s var(--ra) both}
+.mo-dan>*:nth-child(1){animation-delay:.02s}
+.mo-dan>*:nth-child(2){animation-delay:.07s}
+.mo-dan>*:nth-child(3){animation-delay:.12s}
+.mo-dan>*:nth-child(4){animation-delay:.17s}
+.mo-dan>*:nth-child(5){animation-delay:.22s}
+.mo-dan>*:nth-child(6){animation-delay:.27s}
+.mo-dan>*:nth-child(n+7){animation-delay:.3s}
+
+/* Lưới ảnh và danh sách dài hiện dần khi trôi vào tầm mắt, mỗi thứ một lần.
+   Chỉ giấu đi khi JavaScript đã nhận việc — hỏng script thì nội dung vẫn còn. */
+:root[data-lodan="1"] .mo-lo{opacity:0;transform:translateY(14px);
+  transition:opacity .46s var(--ra),transform .46s var(--ra)}
+:root[data-lodan="1"] .mo-lo.hien{opacity:1;transform:none}
+
+/* ---- Lịch ------------------------------------------------------------
+   Đổi tháng thì lưới dịch ngang một quãng ngắn rồi mờ vào; ngày được chọn
+   đổi nền và viền chứ không phóng to cả ô. */
+@keyframes mo-thang-toi{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes mo-thang-lui{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+.calendar-grid[data-huong=toi]{animation:mo-thang-toi .28s var(--ra) both}
+.calendar-grid[data-huong=lui]{animation:mo-thang-lui .28s var(--ra) both}
+.calendar-heading h2 span,.month-agenda{animation:mo-hien .3s var(--ra) both}
+.day-cell{transition:background var(--mo-bam),border-color var(--mo-bam),color var(--mo-bam)}
+.day-cell:hover:not(.selected){background:var(--raised)}
+.day-cell .day-dots .dot{transition:transform var(--mo-cham) var(--ra)}
+.day-cell.selected .day-dots .dot{transform:scale(1.35)}
+.agenda-row{transition:background var(--mo-bam),transform var(--mo-bam)}
+.agenda-row:hover{transform:translateX(3px)}
+
+/* ---- Hộp thoại và bảng thông tin ------------------------------------- */
+.modal{animation:mo-truot var(--mo-bang) var(--ra) both}
+.modal::backdrop{animation:mo-hien .28s ease both}
+.toast{animation:mo-truot .32s var(--ra) both}
+.review-banner,.info-note{animation:mo-len .4s var(--ra) both}
+
+/* ---- Biểu mẫu --------------------------------------------------------
+   Viền đổi trong một nhịp rất ngắn khi vào ô. Báo lỗi hiện bằng chữ ngay
+   cạnh ô, không rung cả màn hình. */
+input,select,textarea{transition:border-color 160ms var(--nhanh),background 160ms,box-shadow 160ms}
+.field>small,.form-error,.error-note{animation:mo-len .22s var(--ra) both}
+.search-field{transition:border-color var(--mo-bam),background var(--mo-bam)}
+
+/* ---- Lớp không khí ---------------------------------------------------
+   Một lớp trang trí duy nhất cho cả ứng dụng, thay vì mỗi thẻ tự phát sáng
+   một kiểu. Nằm dưới mọi nội dung, không nhận sự kiện con trỏ. */
+.mo-khong-khi{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;contain:strict}
+.mo-quang{position:absolute;width:min(46vw,420px);aspect-ratio:1;border-radius:50%;
+  filter:blur(52px);opacity:.5;background:radial-gradient(circle,var(--gold-veil-soft),transparent 70%);
+  animation:mo-quang 17s ease-in-out infinite;will-change:transform}
+.mo-quang.hai{right:-4%;bottom:-8%;animation-delay:-8.5s;animation-duration:21s}
+.mo-quang.mot{left:4%;top:6%}
+.mo-khong-khi i{position:absolute;width:3px;height:3px;border-radius:50%;background:var(--gold);
+  opacity:0;box-shadow:0 0 7px var(--gold);animation:mo-bui var(--mo-lau,13s) linear infinite;
+  animation-delay:var(--mo-tre,0s)}
+@media(max-width:760px){.mo-khong-khi i:nth-child(n+7){display:none}}
+
+/* ---- Cây gia phả theo nhánh -----------------------------------------
+   Thẻ hiện lần lượt theo đời; mở một nhánh thì đàn em bên dưới hiện dần
+   chứ không bật ra cùng một lúc. Việc dời chỗ của những nhánh phía dưới
+   do FLIP trong motion.js lo, vì CSS không đo được quãng đường ấy. */
+.tree-row{animation:mo-the .62s var(--ra) both;animation-delay:var(--mo-tre,0s)}
+.tree-children>.tree-branch>.tree-row{animation-duration:.5s}
+.tree-chip{transition:transform var(--mo-cham) var(--ra),border-color var(--mo-cham),background var(--mo-cham)}
+.tree-couple:not(.paired) .tree-chip:hover,.tree-couple.paired:hover{transform:translateY(-3px)}
+.tree-chip .avatar{transition:transform var(--mo-cham) var(--ra)}
+.tree-chip:hover .avatar{transform:scale(1.08)}
+.tree-toggle{transition:background var(--mo-bam),color var(--mo-bam)}
+.tree-toggle svg{transition:transform var(--mo-cham) var(--ra)}
+.tree-more{animation:mo-hien .3s var(--ra) both;
+  transition:color var(--mo-bam),border-color var(--mo-bam),transform var(--mo-bam)}
+.tree-more:hover{transform:translateX(3px)}
+/* Đường nối vẽ dần: khuỷu cong lộ ra từ phía cha mẹ, rồi nét dọc chạy xuống. */
+@keyframes mo-khuyu{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+@keyframes mo-net{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.tree-children>.tree-branch::before{animation:mo-khuyu .42s var(--ra) both;animation-delay:var(--mo-tre,0s)}
+.tree-children>.tree-branch::after{transform-origin:top;animation:mo-net .5s var(--ra) both;animation-delay:var(--mo-tre,0s)}
+/* Đường về tổ tiên: chạm vào một người thì nét nối từ người ấy ngược lên gốc
+   chuyển sang màu đồng, để thấy ngay mình là con cháu của ai. */
+.tree-branch::before,.tree-branch::after{transition:border-color var(--mo-cham),background var(--mo-cham)}
+.tree-branch.to-tien>.tree-row>.tree-couple{border-color:var(--gold)}
+.tree-children>.tree-branch.to-tien::before{border-left-color:var(--gold);border-bottom-color:var(--gold)}
+.tree-children>.tree-branch.mach::after{background:var(--gold)}
+
+/* ---- Đổi sáng/tối ----------------------------------------------------
+   Lớp này do theme.js gắn vào đúng lúc đang đổi rồi gỡ ra, nên cái giá của
+   việc bắt cả trang canh màu chỉ phải trả trong nửa giây ấy. */
+.dang-doi-mau,.dang-doi-mau *,.dang-doi-mau *::before,.dang-doi-mau *::after{
+  transition:background-color var(--mo-mau) ease,border-color var(--mo-mau) ease,
+    color var(--mo-mau) ease,fill var(--mo-mau) ease,stroke var(--mo-mau) ease,
+    box-shadow var(--mo-mau) ease!important}

@@ -1,100 +1,110 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Users, Minimize2, Maximize2, ImagePlus } from 'lucide-react';
 import { Avatar } from './components.jsx';
+import { build, countBelow, duongVeGoc } from './family.js';
+import { doCho, chayVe } from './motion.js';
 import { pad } from '../shared/lunar.js';
 
-/** Sơ đồ gia phả: cả người còn sống lẫn người đã khuất, vì gia phả là của cả họ chứ
- * không riêng phần tưởng nhớ.
+/** Sơ đồ gia phả theo nhánh: cả người còn sống lẫn người đã khuất, vì gia phả là
+ * của cả họ chứ không riêng phần tưởng nhớ.
  *
  * Cây dựng theo chiều dọc, đời sau thụt vào, chứ không trải ngang: ba đời và chín
  * nhánh con thì một cây trải ngang không thể vừa màn hình điện thoại, mà cả họ thì
  * xem bằng điện thoại. Vợ chồng đứng cạnh nhau thành một mắt, và con cái của ai
- * trong hai người cũng đều treo dưới mắt đó. */
+ * trong hai người cũng đều treo dưới mắt đó.
+ *
+ * Trạng thái đóng/mở của từng nhánh nằm ở đây chứ không nằm trong từng nhánh, vì
+ * mở một nhánh làm cả đàn em phía dưới nhảy chỗ; muốn kéo chúng về chỗ cũ rồi thả
+ * ra cho mượt thì phải có một chỗ nhìn thấy cả cây cùng lúc. */
 export default function FamilyTree({ people, onOpen, onPhoto = null, dangTai = null }) {
   const tree = useMemo(() => build(people), [people]);
-  // null là mặc định (mở tới đời cháu), false là chỉ mở đời đầu để nhìn cả họ trong một
-  // màn hình, true là mở hết. Đổi `lan` thì các nhánh phải quên trạng thái đang giữ,
-  // nên chúng được gắn khoá mới để dựng lại từ đầu.
-  const [lan, setLan] = useState(null), [khoa, setKhoa] = useState(0);
-  const spread = value => { setLan(value); setKhoa(n => n + 1); };
+
+  // Danh sách phẳng mọi mắt kèm độ sâu — cần để quyết định mặc định mở tới đâu
+  // mà không phải đi lại cả cây mỗi lần dựng.
+  const sau = useMemo(() => {
+    const map = new Map();
+    const di = (node, d) => { map.set(node.id, d); tree.childrenOf(node).forEach(c => di(c, d + 1)); };
+    tree.roots.forEach(r => di(r, 0));
+    return map;
+  }, [tree]);
+
+  const macDinh = useCallback(toi => {
+    const ra = new Set();
+    for (const [id, d] of sau) if (d < toi) ra.add(id);
+    return ra;
+  }, [sau]);
+
+  const [moRa, setMoRa] = useState(() => macDinh(2));
+  const [sang, setSang] = useState(null);       // người đang rê tới, để soi đường về gốc
+  const hopRef = useRef(null), choCu = useRef(null);
+
+  /** Đo trước, đổi, rồi kéo mọi nhánh về chỗ cũ và thả ra. Không có bước này thì
+   * mở một nhánh là cả nửa trang bên dưới nhảy một phát, mắt mất dấu người đang xem. */
+  const doiCho = useCallback(viec => {
+    choCu.current = doCho(hopRef.current);
+    viec();
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!choCu.current) return;
+    chayVe(hopRef.current, choCu.current);
+    choCu.current = null;
+  });
+
+  const doiNhanh = useCallback(id => doiCho(() => setMoRa(cu => {
+    const moi = new Set(cu);
+    moi.has(id) ? moi.delete(id) : moi.add(id);
+    return moi;
+  })), [doiCho]);
+
+  const trai = useMemo(() => (sang ? duongVeGoc(sang, tree) : null), [sang, tree]);
+
   if (!tree.roots.length) return null;
-  const thuGon = lan === false;
-  return <div className="family-tree">
+  const thuGon = moRa.size <= tree.roots.length;
+
+  return <div className="family-tree" ref={hopRef}>
     <div className="tree-tools">
-      <button onClick={() => spread(thuGon ? true : false)}>
+      <button onClick={() => doiCho(() => setMoRa(macDinh(thuGon ? 99 : 1)))}>
         {thuGon ? <><Maximize2/>Mở cả cây</> : <><Minimize2/>Thu gọn cả cây</>}
       </button>
     </div>
     <div role="tree" aria-label="Sơ đồ gia phả">
-      {tree.roots.map(node => <Branch key={`${node.id}:${khoa}`} node={node} tree={tree} depth={0} lan={lan} onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai}/>)}
+      {tree.roots.map((node, i) => <Branch key={node.id} node={node} tree={tree} depth={0} thu={i}
+        moRa={moRa} doiNhanh={doiNhanh} trai={trai} soi={setSang}
+        onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai}/>)}
     </div>
   </div>;
 }
 
-function build(people) {
-  const byId = new Map(people.map(p => [p.id, p]));
-  const hasParent = p => !!(p && p.parent_id && byId.has(p.parent_id));
-  // Anh chị em xếp theo thứ tự sinh trong nhà. Nhiều người chỉ biết năm sinh chứ không
-  // biết ngày, và một số chưa biết gì cả, nên thứ tự sinh là căn cứ đầu tiên; ai chưa
-  // có thì xuống cuối rồi mới xét tới năm sinh và tên.
-  const order = [...people].sort((a, b) => a.generation - b.generation
-    || (a.birth_order || 99) - (b.birth_order || 99)
-    || (a.birth_year || 9999) - (b.birth_year || 9999)
-    || a.name.localeCompare(b.name, 'vi'));
-
-  // Người đứng ở vị trí của mình trên cây là người có gốc trong họ; vợ hoặc chồng
-  // cưới vào thì ghép bên cạnh chứ không chiếm một nhánh riêng.
-  const partnerOf = new Map(), married = new Set();
-  for (const person of order) {
-    if (married.has(person.id)) continue;
-    const spouse = person.spouse_id ? byId.get(person.spouse_id) : null;
-    if (!spouse || married.has(spouse.id)) continue;
-    const primary = !hasParent(person) && hasParent(spouse) ? spouse : person;
-    partnerOf.set(primary.id, primary === person ? spouse : person);
-    married.add(primary === person ? spouse.id : person.id);
-  }
-
-  const nodes = order.filter(p => !married.has(p.id));
-  const childrenOf = node => {
-    const parents = new Set([node.id, partnerOf.get(node.id)?.id].filter(Boolean));
-    return nodes.filter(p => p.parent_id && parents.has(p.parent_id));
-  };
-  const roots = nodes.filter(p => !hasParent(p) && !hasParent(partnerOf.get(p.id)));
-  return { roots, partnerOf, childrenOf };
-}
-
-/** Đếm cả con, cháu, chắt của một nhánh — con số này là thứ giúp người xem quyết định
- * có mở nhánh ra hay không, nên phải đếm hết chứ không chỉ đếm đời kế tiếp. */
-function countBelow(node, tree) {
+function Branch({ node, tree, depth, thu, moRa, doiNhanh, trai, soi, onOpen, onPhoto, dangTai }) {
   const children = tree.childrenOf(node);
-  return children.reduce((total, child) => total + 1 + countBelow(child, tree), 0);
-}
-
-function Branch({ node, tree, depth, lan, onOpen, onPhoto, dangTai }) {
-  const children = tree.childrenOf(node);
-  // Mặc định mở hai đời đầu; sâu hơn thì gập lại để cả cây còn nhìn được một lượt.
-  // "Thu gọn cả cây" chỉ để lại đời đầu, nên cả họ nằm gọn trong một màn hình.
-  const [open, setOpen] = useState(lan === null ? depth < 2 : lan === false ? depth < 1 : true);
+  const open = moRa.has(node.id);
   const partner = tree.partnerOf.get(node.id);
   const below = children.length ? countBelow(node, tree) : 0;
-  return <div className={`tree-branch depth-${Math.min(depth, 4)}`} role="treeitem" aria-expanded={children.length ? open : undefined}>
+  const treTre = Math.min(depth * 0.05 + thu * 0.04, 0.34);
+  const tren = trai?.has(node.id);
+  return <div className={`tree-branch depth-${Math.min(depth, 4)} ${tren ? 'to-tien' : ''} ${tren && depth > 0 ? 'mach' : ''}`}
+    data-flip={node.id} role="treeitem" aria-expanded={children.length ? open : undefined}
+    style={{ '--mo-tre': `${treTre}s` }}>
     <div className="tree-row">
       {children.length
-        ? <button className={`tree-toggle ${open ? 'open' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open}
+        ? <button className={`tree-toggle ${open ? 'open' : ''}`} onClick={() => doiNhanh(node.id)} aria-expanded={open}
             aria-label={`${open ? 'Thu gọn' : 'Mở'} nhánh ${node.name}, ${below} người`}><ChevronRight/></button>
         : <span className="tree-toggle empty" aria-hidden="true"/>}
       {/* Vợ chồng nằm trong một khung có chung đường viền, ngăn nhau bằng một nét mảnh:
           hai ô rời nhau thì mắt đọc ra hai người, một khung thì đọc ra một cặp. */}
       <div className={`tree-couple ${partner ? 'paired' : ''}`}>
-        <Chip person={node} onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai===node.id}/>
-        {partner && <Chip person={partner} onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai===partner.id} married/>}
+        <Chip person={node} onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai===node.id} soi={soi}/>
+        {partner && <Chip person={partner} onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai===partner.id} soi={soi} married/>}
       </div>
     </div>
-    {children.length > 0 && !open && <button className="tree-more" onClick={() => setOpen(true)}>
+    {children.length > 0 && !open && <button className="tree-more" onClick={() => doiNhanh(node.id)}>
       <Users/>{below} người trong nhánh này
     </button>}
     {children.length > 0 && open && <div className="tree-children">
-      {children.map(child => <Branch key={child.id} node={child} tree={tree} depth={depth + 1} lan={lan} onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai}/>)}
+      {children.map((child, i) => <Branch key={child.id} node={child} tree={tree} depth={depth + 1} thu={i}
+        moRa={moRa} doiNhanh={doiNhanh} trai={trai} soi={soi}
+        onOpen={onOpen} onPhoto={onPhoto} dangTai={dangTai}/>)}
     </div>}
   </div>;
 }
@@ -102,15 +112,23 @@ function Branch({ node, tree, depth, lan, onOpen, onPhoto, dangTai }) {
 /** Dòng phụ dưới tên nói đúng một điều quan trọng nhất về người đó: người đã khuất thì
  * là ngày giỗ, người còn sống thì là năm sinh. Chữ "vợ/chồng" cho người cưới vào, vì
  * hai ô đứng cạnh nhau thôi thì chưa đủ để biết đó là vợ chồng hay hai anh em. */
-function Chip({ person, onOpen, onPhoto, dangTai, married = false }) {
+function Chip({ person, onOpen, onPhoto, dangTai, soi, married = false }) {
   const years = person.birth_year && person.death_year ? `${person.birth_year} – ${person.death_year}`
     : person.birth_year ? `sinh ${person.birth_year}` : '';
   const facts = person.living ? [years || 'còn sống'] : [years, `giỗ ${pad(person.lunar_day)}/${pad(person.lunar_month)} âm`];
   const note = [married ? 'vợ/chồng' : '', ...facts].filter(Boolean).join(' · ');
   const mat = <Avatar name={person.name} photoId={person.photo_id}/>;
+  // Chạm hay rê tới một cái tên thì cả đường nối từ người ấy ngược lên gốc sáng lên:
+  // đó là câu hỏi đầu tiên ai mở gia phả cũng hỏi — người này là con cháu của ai.
+  const theoDoi = {
+    onPointerEnter: () => soi?.(person.id),
+    onPointerLeave: () => soi?.(null),
+    onFocus: () => soi?.(person.id),
+    onBlur: () => soi?.(null),
+  };
   // Hai mươi bốn người là hai mươi bốn lần mở trang riêng nếu chỉ tải ảnh được ở đó.
   // Chạm thẳng vào vòng mặt trên cây là chọn được ảnh, không rời khỏi sơ đồ.
-  return <div className={`tree-chip ${person.living ? 'living' : 'departed'} ${married ? 'married-in' : ''}`}>
+  return <div className={`tree-chip ${person.living ? 'living' : 'departed'} ${married ? 'married-in' : ''}`} {...theoDoi}>
     {onPhoto
       ? <label className={`tree-face pickable ${dangTai ? 'dang-tai' : ''}`} title={`Thêm ảnh cho ${person.name}`}>
           {mat}

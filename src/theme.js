@@ -26,11 +26,23 @@ export function luuLuaChon(chon) {
   try { chon === 'auto' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, chon); } catch { /* không lưu được thì thôi */ }
 }
 
+/** Đổi nền, chữ và viền cùng một lúc trong khoảng nửa giây, thay vì cả trang nháy
+ * một cái sang màu khác. Lớp này chỉ sống đúng lúc đang đổi rồi gỡ đi: bắt mọi
+ * phần tử phải canh màu suốt đời là bắt trình duyệt làm việc thừa. */
+let henMau;
+function chuyenMau(root) {
+  if (!root.dataset.theme) return;                 // lần đầu mở trang thì chưa có gì để chuyển
+  if (root.dataset.motion === 'off') return;       // đã xin giảm chuyển động
+  root.classList.add('dang-doi-mau');
+  clearTimeout(henMau);
+  henMau = setTimeout(() => root.classList.remove('dang-doi-mau'), 620);
+}
+
 /** Đặt giao diện lên thẻ <html> và trả về giao diện đang dùng. */
 export function apDung(chon = docLuaChon(), now = new Date()) {
   const dang = chon === 'auto' ? theoGio(now) : chon;
   const root = document.documentElement;
-  if (root.dataset.theme !== dang) root.dataset.theme = dang;
+  if (root.dataset.theme !== dang) { chuyenMau(root); root.dataset.theme = dang; }
   const the = document.querySelector('meta[name="theme-color"]');
   if (the && the.content !== MAU_THANH[dang]) the.content = MAU_THANH[dang];
   return dang;

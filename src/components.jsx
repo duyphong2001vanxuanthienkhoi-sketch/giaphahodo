@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LoiNhac } from './icons.jsx';
 import { X, Sprout, Bell, ArrowUpRight, MapPin, CalendarDays, ChevronLeft, ChevronRight, Check, Plus, Sparkles } from 'lucide-react';
 import { monthGrid, solarLabel, lunarLabel, pad, daysBetween } from '../shared/lunar.js';
@@ -29,7 +29,7 @@ export function ObservanceRow({event,today}) {
 }
 export function EventHero({event,today,onOpen,onRemind,reminded}) {
   const days=daysBetween(today,event.date);
-  return <article className="event-hero"><div className="hero-content"><div className="eyebrow"><span className="status-dot"/>Ngày giỗ gần nhất</div><h2>{event.name}</h2><p className="event-generation">Đời thứ {event.generation}{event.branch&&event.branch!=='Chưa phân chi'?' · '+event.branch:''}</p><p className="inline-meta"><CalendarDays/>{pad(event.lunar_day)}/{pad(event.lunar_month)} âm lịch<span className="dot-separator">·</span>{solarLabel(event.date)}</p><p className="inline-meta location"><MapPin/>{event.location||'Chưa cập nhật địa điểm'}</p>{event.shifted&&<p className="hero-note">Tháng {event.lunar_month} năm nay chỉ có 29 ngày, nên giỗ lùi về ngày cuối tháng — {lunarLabel(event.date)}.</p>}<div className="hero-actions">{onRemind&&<Button variant="primary" onClick={()=>onRemind(event)}>{reminded?<Check/>:<LoiNhac/>}{reminded?'Đã đặt lời nhắc':'Nhắc tôi ngày này'}</Button>}<Button variant={onRemind?'text':'primary'} onClick={()=>onOpen(event)}>Xem chi tiết<ArrowUpRight/></Button></div></div><div className="countdown" aria-label={days===0?'Ngày giỗ hôm nay':`Còn ${days} ngày`}><span>{days===0?'Ngày giỗ':'Còn'}</span><b>{pad(days)}</b><span>{days===0?'Hôm nay':'Ngày nữa'}</span></div></article>;
+  return <article className="event-hero"><div className="hero-content"><div className="eyebrow"><span className="status-dot"/>Ngày giỗ gần nhất</div><h2>{event.name}</h2><p className="event-generation">Đời thứ {event.generation}{event.branch&&event.branch!=='Chưa phân chi'?' · '+event.branch:''}</p><p className="inline-meta"><CalendarDays/>{pad(event.lunar_day)}/{pad(event.lunar_month)} âm lịch<span className="dot-separator">·</span>{solarLabel(event.date)}</p><p className="inline-meta location"><MapPin/>{event.location||'Chưa cập nhật địa điểm'}</p>{event.shifted&&<p className="hero-note">Tháng {event.lunar_month} năm nay chỉ có 29 ngày, nên giỗ lùi về ngày cuối tháng — {lunarLabel(event.date)}.</p>}<div className="hero-actions">{onRemind&&<Button variant="primary" onClick={()=>onRemind(event)}>{reminded?<Check/>:<LoiNhac/>}{reminded?'Đã đặt lời nhắc':'Nhắc tôi ngày này'}</Button>}<Button variant={onRemind?'text':'primary'} onClick={()=>onOpen(event)}>Xem chi tiết<ArrowUpRight/></Button></div></div><div className="countdown" aria-label={days===0?'Ngày giỗ hôm nay':`Còn ${days} ngày`}><span>{days===0?'Ngày giỗ':'Còn'}</span><b key={days}>{pad(days)}</b><span>{days===0?'Hôm nay':'Ngày nữa'}</span></div></article>;
 }
 export function Calendar({year,month,events,observances=[],birthdays=[],today,selected,onSelect,onMonth,compact=false}) {
   const cells=monthGrid(year,month);
@@ -39,11 +39,14 @@ export function Calendar({year,month,events,observances=[],birthdays=[],today,se
   events.forEach(e=>put(e.date,{kind:'gio',label:e.name.replace(/^(Cụ|Ông|Bà|Bác|Cô|Chú|Dì|Anh|Chị) /,''),full:'Giỗ '+e.name}));
   birthdays.forEach(e=>put(e.date,{kind:'sinhnhat',label:e.name.replace(/^(Ông|Bà|Bác|Cô|Chú|Dì|Anh|Chị|Em) /,''),full:`Sinh nhật ${e.name} · tròn ${e.turning} tuổi`}));
   observances.forEach(e=>put(e.date,{kind:'viecho',label:e.name.split('·')[0].trim(),full:e.name}));
-  const change=n=>{let m=month+n,y=year;if(m===0){m=12;y--;}if(m===13){m=1;y++;}if(y>=1901&&y<=2198)onMonth({year:y,month:m});};
+  // Nhớ vừa bấm tới hay bấm lui, để lưới tháng mới trượt vào từ đúng phía — đi tới
+  // thì vào từ bên phải, lùi lại thì vào từ bên trái, như lật một trang sổ.
+  const [huong,setHuong]=useState('toi');
+  const change=n=>{let m=month+n,y=year;if(m===0){m=12;y--;}if(m===13){m=1;y++;}if(y>=1901&&y<=2198){setHuong(n>0?'toi':'lui');onMonth({year:y,month:m});}};
   return <section className={`calendar-panel ${compact?'compact':''}`} aria-label={`Lịch tháng ${month} năm ${year}`}>
     <div className="calendar-heading"><h2>Tháng {month}<span>, {year}</span></h2><div className="calendar-arrows"><button className="icon-button" onClick={()=>change(-1)} disabled={year===1901&&month===1} aria-label="Tháng trước"><ChevronLeft/></button><button className="icon-button" onClick={()=>change(1)} disabled={year===2198&&month===12} aria-label="Tháng sau"><ChevronRight/></button></div></div>
     <div className="weekday-row">{['T2','T3','T4','T5','T6','T7','CN'].map(d=><span key={d}>{d}</span>)}</div>
-    <div className="calendar-grid">{cells.map(cell=>{
+    <div className="calendar-grid" key={`${year}-${month}`} data-huong={huong}>{cells.map(cell=>{
       const list=byDate.get(cell.date)||[];
       const kinds=[...new Set(list.map(x=>x.kind))];
       return <button key={cell.date}

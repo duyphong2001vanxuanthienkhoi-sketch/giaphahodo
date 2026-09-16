@@ -12,10 +12,17 @@ import '@fontsource/lora/latin-400-italic.css';
 import '@fontsource/lora/vietnamese-400-italic.css';
 import App from './App.jsx';
 import './styles.css';
+import './motion.css';
+import './tree-canvas.css';
 import { apDung } from './theme.js';
+import { khoiDong as khoiDongChuyenDong } from './motion.js';
 
 // Đặt giao diện trước khi React dựng cây, để không loé một nhịp sai màu rồi mới đổi.
 apDung();
+// Và quyết chuyện chuyển động trước khi có gì kịp chuyển động: ai đã xin máy giảm
+// chuyển động thì mở ra phải thấy một trang đứng yên, không phải thấy nó chạy một
+// nhịp rồi mới dừng lại.
+khoiDongChuyenDong();
 
 class ErrorBoundary extends React.Component {
   state = { error: false };

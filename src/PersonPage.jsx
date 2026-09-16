@@ -95,7 +95,7 @@ export default function PersonPage({ person, events, data, admin, guest = false,
             {!guest&&<label className="button"><ImagePlus/>{uploading?'Đang tải lên…':tuLoAnh?'Thêm ảnh':'Góp ảnh'}<input type="file" accept="image/*" multiple hidden disabled={uploading} onChange={addPhotos}/></label>}</div>
           {photos.length===0
             ? <p className="muted">{guest?'Gia đình chưa thêm ảnh về người thân này.':laToi?'Chưa có ảnh nào của bạn. Chọn một tấm để cả họ nhớ mặt.':admin?'Chưa có ảnh nào. Thêm ảnh để con cháu nhớ mặt người.':'Chưa có ảnh nào. Bạn có ảnh thì góp vào, người quản lý duyệt xong cả họ sẽ thấy.'}</p>
-            : <div className="photo-grid">{photos.map(photo=><figure key={photo.id} className={photo.id===person.photo_id?'portrait':''}>
+            : <div className="photo-grid">{photos.map(photo=><figure key={photo.id} className={`mo-lo ${photo.id===person.photo_id?'portrait':''}`}>
                 <button onClick={()=>setViewing(photo)} aria-label={photo.caption||`Xem ảnh của ${person.name}`}><img src={`/api/photos/${photo.id}`} alt={photo.caption||`Ảnh ${person.name}`} loading="lazy"/></button>
                 {photo.id===person.photo_id&&<span className="portrait-flag"><Star/>Ảnh đại diện</span>}
                 {/* Ảnh người trong họ góp còn chờ duyệt: chỉ quản lý và chính người góp
