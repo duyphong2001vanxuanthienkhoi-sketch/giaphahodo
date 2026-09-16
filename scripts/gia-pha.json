@@ -6,7 +6,7 @@
       "spouse": "Hứa Thị Hợp", "note": "Ông tổ đời thứ nhất trong gia phả này. Cùng bà Hứa Thị Hợp sinh được chín người con." },
 
     { "name": "Hứa Thị Hợp", "was": "Bà Hứa Thị Hợp", "generation": 1, "death_year": 2026, "lunar_day": 1, "lunar_month": 8,
-      "spouse": "Đỗ Văn Sáo", "note": "Vợ ông Đỗ Văn Sáo, mẹ của chín người con. Cần xác nhận lại ngày: thông tin gửi sang ghi giỗ 01/08 nhưng ngày mất 01/09 âm lịch. Đang dùng 01/08." },
+      "spouse": "Đỗ Văn Sáo", "note": "Vợ ông Đỗ Văn Sáo, mẹ của chín người con. Giỗ ngày 01/08 âm lịch — gia đình đã xác nhận." },
 
     { "name": "Đỗ Thị Lý", "generation": 2, "birth_order": 1, "living": true, "parent": "Đỗ Văn Sáo", "note": "Con cả, con gái thứ nhất." },
     { "name": "Đỗ Thị Thuyết", "generation": 2, "birth_order": 2, "living": true, "parent": "Đỗ Văn Sáo", "note": "Con gái thứ hai." },
