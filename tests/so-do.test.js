@@ -128,3 +128,29 @@ test('Tìm tên không cần gõ dấu', () => {
   const dau = people[0].name;
   assert.ok(co(khongDau(dau)), `gõ "${khongDau(dau)}" phải tìm ra "${dau}"`);
 });
+
+test('Ở mắt gốc, người giữ nhánh là người con cháu nối vào, không phải người xếp trước theo vần', () => {
+  // Cặp trên cùng của một dòng họ không ai có cha mẹ trong sổ — gia phả truy tới đó
+  // là hết. Nếu chỉ xét "ai có cha mẹ" thì hai người hoà nhau, và tên nào xếp trước
+  // theo vần sẽ chiếm mắt, khiến cụ ông nhà mình bị ghi là "vợ/chồng" của cụ bà.
+  const ho = [
+    { id: 'ba', name: 'Cụ bà', generation: 1, living: 0, parent_id: null, spouse_id: 'ong' },
+    { id: 'ong', name: 'Đỗ Văn Ông', generation: 1, living: 0, parent_id: null, spouse_id: 'ba' },
+    { id: 'con', name: 'Đỗ Văn Con', generation: 2, living: 1, parent_id: 'ong', spouse_id: null },
+  ];
+  const t = build(ho);
+  assert.equal(t.roots.length, 1, 'một cặp thì chỉ dựng một mắt gốc');
+  assert.equal(t.roots[0].name, 'Đỗ Văn Ông', 'người được ghi là cha của con cháu phải giữ mắt gốc');
+  assert.equal(t.partnerOf.get('ong')?.name, 'Cụ bà', 'người kia ghép bên cạnh');
+  assert.equal(t.childrenOf(t.roots[0]).length, 1, 'con vẫn treo dưới đúng mắt ấy');
+
+  // Còn khi một người có cha mẹ trong họ thì căn cứ ấy vẫn thắng, dù tên xếp sau.
+  const cuoiVao = [
+    { id: 'cha', name: 'Đỗ Văn Cha', generation: 1, living: 0, parent_id: null, spouse_id: null },
+    { id: 'z', name: 'Đỗ Văn Z', generation: 2, living: 1, parent_id: 'cha', spouse_id: 'a' },
+    { id: 'a', name: 'An Thị A', generation: 2, living: 1, parent_id: null, spouse_id: 'z' },
+  ];
+  const t2 = build(cuoiVao);
+  assert.equal(t2.childrenOf(t2.roots[0])[0].name, 'Đỗ Văn Z', 'người có cha mẹ trong họ giữ nhánh');
+  assert.equal(t2.partnerOf.get('z')?.name, 'An Thị A', 'người cưới vào ghép bên cạnh');
+});

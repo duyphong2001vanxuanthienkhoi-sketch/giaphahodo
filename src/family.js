@@ -17,12 +17,22 @@ export function build(people) {
 
   // Người đứng ở vị trí của mình trên cây là người có gốc trong họ; vợ hoặc chồng
   // cưới vào thì ghép bên cạnh chứ không chiếm một nhánh riêng.
+  //
+  // Hai căn cứ, xét theo thứ tự: ai có cha mẹ trong họ thì người ấy có gốc; nếu cả
+  // hai đều không có — thường là cặp trên cùng, đời mà gia phả không truy được nữa
+  // — thì nhìn xuống đời sau, ai được ghi là cha mẹ của lũ con thì người ấy giữ
+  // nhánh. Thiếu căn cứ thứ hai này thì ở mắt gốc, tên nào xếp trước theo vần sẽ
+  // chiếm chỗ, và cụ ông nhà mình có thể bị ghi là "vợ/chồng" của cụ bà cưới vào.
+  const laChaMe = new Set(people.map(p => p.parent_id).filter(Boolean));
   const partnerOf = new Map(), married = new Set();
   for (const person of order) {
     if (married.has(person.id)) continue;
     const spouse = person.spouse_id ? byId.get(person.spouse_id) : null;
     if (!spouse || married.has(spouse.id)) continue;
-    const primary = !hasParent(person) && hasParent(spouse) ? spouse : person;
+    const goc = (a, b) => (hasParent(a) !== hasParent(b) ? hasParent(a)
+      : laChaMe.has(a.id) !== laChaMe.has(b.id) ? laChaMe.has(a.id)
+      : true);
+    const primary = goc(person, spouse) ? person : spouse;
     partnerOf.set(primary.id, primary === person ? spouse : person);
     married.add(primary === person ? spouse.id : person.id);
   }
