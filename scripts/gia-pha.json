@@ -3,7 +3,7 @@
   "defaults": { "branch": "Chưa phân chi", "leap_policy": "regular", "short_month_policy": "last-day" },
   "people": [
     { "name": "Đỗ Văn Sáo", "was": "Ông Đỗ Văn Sáo", "generation": 1, "death_year": 2025, "lunar_day": 13, "lunar_month": 10,
-      "spouse": "Hứa Thị Hợp", "note": "Ông tổ đời thứ nhất trong gia phả này. Cùng bà Hứa Thị Hợp sinh được chín người con." },
+      "spouse": "Hứa Thị Hợp", "note": "Ông cùng bà Hứa Thị Hợp sinh được chín người con." },
 
     { "name": "Hứa Thị Hợp", "was": "Bà Hứa Thị Hợp", "generation": 1, "death_year": 2026, "lunar_day": 1, "lunar_month": 8,
       "spouse": "Đỗ Văn Sáo", "note": "Vợ ông Đỗ Văn Sáo, mẹ của chín người con. Giỗ ngày 01/08 âm lịch — gia đình đã xác nhận." },
