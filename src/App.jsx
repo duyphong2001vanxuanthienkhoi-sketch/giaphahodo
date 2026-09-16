@@ -37,11 +37,13 @@ export default function App(){
   const [month,setMonth]=useState(()=>{const t=todayInVietnam();return {year:Number(t.slice(0,4)),month:Number(t.slice(5,7))};}),[selected,setSelected]=useState(todayInVietnam()),[calendarMode,setCalendarMode]=useState('grid');
   const [search,setSearch]=useState(''),[branch,setBranch]=useState('all'),[busy,setBusy]=useState(false),[actionError,setActionError]=useState('');
   const [showLogin,setShowLogin]=useState(false),[tuDau,setTuDau]=useState('family'),[dangTaiAnh,setDangTaiAnh]=useState(null);
-  // Cách xem gia phả. Màn rộng mở thẳng vào sơ đồ toàn cảnh; điện thoại mở vào cây
-  // theo nhánh, vì ở đó tên đọc được mà không phải phóng to. Chọn rồi thì nhớ.
+  // Cách xem gia phả. Mặc định là sơ đồ toàn cảnh, kể cả trên điện thoại: đó là thứ
+  // cho thấy hình dáng cả dòng họ, và màn hẹp thì nó tự mở thẳng vào một chi nên tên
+  // vẫn đọc được. Trước đây điện thoại mở vào cây theo nhánh, hoá ra thành ra cả nhà
+  // không ai biết có sơ đồ. Ai thích đọc theo nhánh thì bấm một cái, và nhớ luôn.
   const [kieuCay,setKieuCay]=useState(()=>{
     try{const v=localStorage.getItem('do-gia-kieu-cay');if(v==='so-do'||v==='nhanh')return v;}catch{/* chặn lưu trữ thì thôi */}
-    return typeof matchMedia==='function'&&matchMedia('(min-width: 900px)').matches?'so-do':'nhanh';
+    return 'so-do';
   });
   function doiKieuCay(v){setKieuCay(v);try{localStorage.setItem('do-gia-kieu-cay',v);}catch{/* không lưu được thì thôi */}}
   const [chuyenDong,setChuyenDong]=useState(dangBat);

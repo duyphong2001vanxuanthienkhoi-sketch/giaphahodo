@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { preparePortrait } from './image.js';
 import { Avatar, Button, Field, PageHeading, Modal } from './components.jsx';
 import CalendarSync from './CalendarSync.jsx';
+import DuyetDangKy from './DuyetDangKy.jsx';
 import { pad, OBSERVANCES } from '../shared/lunar.js';
 
 const REMINDER_DAYS = [0,1,3,7,14,30];
@@ -16,6 +17,7 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
   const [family,setFamily]=useState({name:data.family.name,home:data.family.home,observances:data.family.observances||[]});
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(null);
   const admin=data.user.role==='admin';
+  const choDuyet=admin?(data.pendingMembers||[]):[];
   async function save(e,path,body){e.preventDefault();setBusy(true);setError('');try{await api(path,{method:'PATCH',body});await reload();notify('Đã lưu thay đổi của bạn.');}catch(e){setError(e.message);}finally{setBusy(false);}}
   // Mã ảnh đi kèm địa chỉ, để đổi ảnh xong trình duyệt không giữ lại ảnh cũ trong bộ nhớ đệm.
   const [dangTai,setDangTai]=useState(false),[phienAnh,setPhienAnh]=useState(0);
@@ -37,10 +39,18 @@ export default function Account({data,reload,notify,initialTab='profile'}) {
   return <><PageHeading eyebrow="Không gian của bạn" title="Tài khoản & lời nhắc" description="Một vài lựa chọn nhỏ để luôn nhớ đúng ngày."/>
     <div className="account-layout">
       <aside className="profile-panel"><Avatar name={data.user.name} src={anhCuaToi} size="large"/><h2>{data.user.name}</h2><p>{data.user.email}</p><span className="pill"><ShieldCheck/>{admin?'Người quản lý':'Thành viên'}</span><div className="profile-family"><Landmark/><span>{data.family.name}</span></div>
-        <div className="account-tabs">{[['profile','Thông tin cá nhân'],['reminders','Nhắc lịch & điện thoại'],...(admin?[['family','Thông tin dòng họ'],['data','Dữ liệu & thùng rác']]:[])].map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setError('');}} aria-pressed={tab===id}>{label}</button>)}</div>
+        {/* Mục duyệt đứng đầu danh sách của người quản lý: có người đang chờ ở đầu
+            kia, nên nó phải là thứ đập vào mắt trước, không phải thứ phải đi tìm. */}
+        <div className="account-tabs">{[...(admin?[['duyet','Đăng ký chờ duyệt',choDuyet.length]]:[]),['profile','Thông tin cá nhân'],['reminders','Nhắc lịch & điện thoại'],...(admin?[['family','Thông tin dòng họ'],['data','Dữ liệu & thùng rác']]:[])].map(([id,label,dem])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setError('');}} aria-pressed={tab===id}>{label}{dem>0&&<small className="badge-pending">{dem}</small>}</button>)}</div>
       </aside>
       <section className="settings-panel">
         {error&&<p className="form-error" role="alert">{error}</p>}
+
+        {tab==='duyet'&&admin&&<>
+          <div className="settings-title"><h2>Đăng ký chờ duyệt</h2><p>Ai trong họ cũng tự đăng ký được ở màn đăng nhập. Bạn duyệt thì họ mới vào được.</p></div>
+          <DuyetDangKy data={data} reload={reload} notify={notify} tieuDe="Đang chờ bạn"/>
+          <p className="hint">Muốn xem cả nhà, đổi quyền hay mời thêm người thì sang mục <strong>Thành viên</strong>.</p>
+        </>}
 
         {tab==='profile'&&<form onSubmit={e=>save(e,'/profile',profile)}>
           <div className="settings-title"><h2>Thông tin cá nhân</h2><p>Cách tên bạn xuất hiện với các thành viên trong dòng họ.</p></div>

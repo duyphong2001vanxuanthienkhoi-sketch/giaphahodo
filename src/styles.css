@@ -503,3 +503,13 @@
 .login-form-wrap form>.hint{margin-top:14px;font-size:.73rem;line-height:1.75;color:var(--muted)}
 .login-form-wrap form>.hint strong{color:var(--text-soft);font-weight:500}
 .login-form-wrap form>.button.text{margin-top:6px}
+
+/* ===== Duyệt đăng ký, đặt ngay trong Tài khoản =====
+   Thẻ mục mang thêm con số người đang chờ, nên nó phải là một hàng ngang có
+   khoảng thở, không phải chữ dính liền vào số. */
+.account-tabs button{display:flex;align-items:center;gap:9px}
+.account-tabs .badge-pending{flex-shrink:0;padding:1px 7px;border-radius:20px;font-size:.68rem;line-height:1.6}
+.pending-invites .section-bar h2{display:flex;align-items:center;gap:9px}
+.pending-invites .section-bar h2 svg{width:17px;height:17px;color:var(--gold)}
+.settings-panel .pending-invites{margin-top:4px}
+.settings-panel .pending-invites+.hint{margin-top:16px}

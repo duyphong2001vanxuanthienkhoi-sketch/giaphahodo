@@ -28,6 +28,10 @@
     { "name": "Ngô Thị Hương", "generation": 3, "birth_order": 1, "living": true, "parent": "Đỗ Thị Thuyết", "note": "Con bà Đỗ Thị Thuyết." },
     { "name": "Ngô Văn Mạnh", "generation": 3, "birth_order": 2, "living": true, "birth_year": 1989, "parent": "Đỗ Thị Thuyết", "note": "Con bà Đỗ Thị Thuyết, sinh năm 1989." },
 
+    { "name": "Đỗ Thị Hương", "generation": 3, "birth_order": 1, "living": true, "parent": "Đỗ Văn Lương", "note": "Con gái cả ông Đỗ Văn Lương." },
+    { "name": "Đỗ Thị Phượng", "generation": 3, "birth_order": 2, "living": true, "parent": "Đỗ Văn Lương", "note": "Con thứ hai ông Đỗ Văn Lương." },
+    { "name": "Đỗ Văn Thiện", "generation": 3, "birth_order": 3, "living": true, "parent": "Đỗ Văn Lương", "note": "Con út ông Đỗ Văn Lương." },
+
     { "name": "Đỗ Thị Ngân", "generation": 3, "birth_order": 1, "living": true, "parent": "Đỗ Văn Thủy", "note": "Con ông Đỗ Văn Thủy." },
     { "name": "Đỗ Thị Nga", "generation": 3, "birth_order": 2, "living": true, "parent": "Đỗ Văn Thủy", "note": "Con ông Đỗ Văn Thủy." },
     { "name": "Đỗ Tuấn Vũ", "generation": 3, "birth_order": 3, "living": true, "birth_year": 1995, "parent": "Đỗ Văn Thủy", "note": "Con ông Đỗ Văn Thủy, sinh năm 1995." },
