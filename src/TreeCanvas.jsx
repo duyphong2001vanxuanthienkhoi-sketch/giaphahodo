@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Minus, Plus, Maximize, Play, Square, ImagePlus, ArrowUpRight, X } from 'lucide-react';
+import { Minus, Plus, Maximize, Play, Square, ImagePlus, ArrowUpRight, X, Phone } from 'lucide-react';
 import { Avatar } from './components.jsx';
 import { TimKiem, MuiTenPhai } from './icons.jsx';
 import { build, boCuc, countBelow, khongDau, matGiaDinh, CAO_HANG, LE } from './family.js';
@@ -434,6 +434,14 @@ export default function TreeCanvas({ people, onOpen, onPhoto = null, dangTai = n
           <h3>{nguoiChon.name}</h3>
           <p className="so-do-bang-trang-thai">{nguoiChon.living ? 'Còn sống' : 'Tưởng nhớ'} · Đời thứ {nguoiChon.generation}</p>
         </div>
+        {/* Gọi được ngay từ trên cây. Số điện thoại chỉ có trong dữ liệu của người đã
+            đăng nhập — bản dành cho khách không hề mang cột này — nên chỗ này tự nó
+            đã kín, không cần thêm một lớp kiểm tra nữa. Ai chưa cập nhật số thì dòng
+            này không hiện ra, chứ không hiện một ô trống. */}
+        {!!nguoiChon.phone && <div className="so-do-bang-goi">
+          <a className="living-phone" href={`tel:${nguoiChon.phone.replace(/\s/g, '')}`}><Phone/>{nguoiChon.phone}</a>
+          <a className="living-zalo" href={`https://zalo.me/${nguoiChon.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">Zalo</a>
+        </div>}
         <dl>
           {!!nguoiChon.birth_year && <><dt>Năm sinh</dt><dd>{nguoiChon.birth_year}</dd></>}
           {!nguoiChon.living && <><dt>Ngày giỗ</dt><dd>{pad(nguoiChon.lunar_day)}/{pad(nguoiChon.lunar_month)} âm lịch</dd></>}

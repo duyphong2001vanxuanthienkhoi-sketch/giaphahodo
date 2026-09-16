@@ -8,7 +8,11 @@ export function Brand({small=false}) {return <div className={`brand ${small?'sma
  * vì hai thứ nằm ở hai bảng khác nhau. Không có ảnh thì lấy chữ cái đầu của tên. */
 export function Avatar({name,photoId=null,src=null,size=''}) {
   const url=src||(photoId?`/api/photos/${photoId}`:null);
-  if(url)return <span className={`avatar photo ${size}`}><img src={url} alt={`Ảnh ${name}`} loading="lazy"/></span>;
+  // Ảnh tải không được thì lùi về chữ viết tắt, giữ nguyên khuôn: một ô ảnh vỡ trên
+  // sơ đồ vừa xấu vừa làm cả hàng xô lệch. So url cũ chứ không chỉ giữ một cờ đúng/sai,
+  // để lần sau tải ảnh mới lên thì nó thử lại chứ không nhớ mãi lần hỏng cũ.
+  const [hong,setHong]=useState(null);
+  if(url&&hong!==url)return <span className={`avatar photo ${size}`}><img src={url} alt={`Ảnh ${name}`} loading="lazy" onError={()=>setHong(url)}/></span>;
   return <span className={`avatar ${size}`} aria-hidden="true">{name.trim().split(/\s+/).slice(-2).map(s=>s[0]).join('').toUpperCase()}</span>;
 }
 export function Button({children,variant='',className='',...props}) {return <button className={`button ${variant} ${className}`} type="button" {...props}>{children}</button>;}

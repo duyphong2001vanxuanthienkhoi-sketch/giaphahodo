@@ -208,3 +208,13 @@
   .so-do-mach-nuoc{display:none}
   .so-do-may{bottom:10px;right:10px}
 }
+
+/* Gọi thẳng từ bảng thông tin trên sơ đồ. Dùng lại đúng kiểu nút của trang Người
+   còn sống, để cùng một việc thì trông giống nhau ở mọi chỗ trong app. */
+.so-do-bang-goi{display:flex;align-items:center;gap:8px;margin-top:13px}
+.so-do-bang-goi .living-phone{flex:1 1 auto;min-width:0;justify-content:center}
+.so-do-bang-goi .living-zalo{flex-shrink:0}
+@media(max-width:720px){
+  .so-do-bang{grid-template-areas:"dau dau" "mat ten" "goi goi" "gi gi" "mo mo"}
+  .so-do-bang-goi{grid-area:goi;margin-top:12px}
+}
