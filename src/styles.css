@@ -60,7 +60,13 @@
 .calendar-legend i.rite{background:var(--muted)}
 .day-event-name.rite{color:var(--muted)}
 .pill.rite{background:var(--raised-2);color:var(--muted)}
-.rite-card{border:1px dashed var(--border)!important;background:var(--surface)!important}
+/* Việc họ là dịp lặp lại hằng năm chứ không phải một người, nhưng cái nhãn "Việc họ"
+   đã nói điều đó rồi. Trước đây nó còn bị ép thêm nền trắng và viền đứt nét: nằm
+   trong khung nền be, một ô trắng viền đứt trông như chỗ hỏng chứ không như một
+   kiểu nội dung khác, mà nhãn thì chạm vào đúng nét viền. Nay chỉ còn một vạch
+   đồng nhạt bên trái — đủ để mắt phân biệt, không giả vờ làm một cái thẻ. */
+.rite-card{border:0!important;border-left:2px solid var(--gold-dim)!important;
+  border-radius:0!important;background:transparent!important;padding:1px 0 1px 15px}
 .event-row.observance{opacity:.92}
 .event-row .muted-stamp{background:var(--raised);border-color:var(--line);color:var(--muted);cursor:default}
 .event-row.observance>svg{color:var(--muted)}
