@@ -58,6 +58,22 @@ export default function CalendarSync({ calendar, preferences, notify, reload }) 
       </dl>
       <p className="hint">Điện thoại tự kiểm tra lịch mới sau mỗi vài giờ đến một ngày, tùy máy — không đổi ngay lập tức sau khi gia đình sửa.</p>
     </details>
+    {/* Câu hỏi hay gặp nhất sau khi sửa một ngày giỗ: "sửa rồi mà máy tôi chưa thấy".
+        Chỉ nói "máy tự kiểm tra sau vài giờ" thì đúng mà không giúp được gì. Hai cách
+        dưới đây không phụ thuộc vào đời máy hay tên từng mục trong Cài đặt — chỗ ấy
+        mỗi bản iOS một khác, chỉ đường sai còn tệ hơn không chỉ. */}
+    <details className="sync-help">
+      <summary><RefreshCw/>Sửa ngày giỗ rồi mà điện thoại chưa thấy?</summary>
+      <dl>
+        <dt>Bình thường thì không cần làm gì</dt>
+        <dd>Máy tự hỏi lại lịch và thay ngày mới vào đúng chỗ cũ, không sinh ra sự kiện trùng. Thường trong vòng một ngày.</dd>
+        <dt>Muốn thấy ngay</dt>
+        <dd>Mở ứng dụng Lịch, vào phần xem danh sách rồi <strong>kéo màn hình xuống</strong> để làm mới.</dd>
+        <dt>Vẫn chưa thấy</dt>
+        <dd>Xoá lịch Đỗ Gia khỏi máy rồi bấm lại nút <strong>Thêm vào Lịch</strong> ở trên. Cách này chắc chắn được, và vẫn dùng đúng link cũ của bạn nên không phải làm gì thêm.</dd>
+      </dl>
+      <p className="hint">Nhịp tự kiểm tra là do điện thoại quyết, không phải do Đỗ Gia. Đỗ Gia dựng lại lịch mới ở mỗi lần máy hỏi, nên hỏi lúc nào cũng nhận được bản mới nhất.</p>
+    </details>
     <div className="sync-danger">
       <p><ShieldAlert/><span>Ai có link này đều đọc được tên người thân, ngày giỗ và địa điểm. Chỉ giữ cho riêng bạn; nếu lỡ gửi nhầm, hãy tạo link mới.</span></p>
       <Button variant="text" onClick={()=>setConfirm(true)}><RefreshCw/>Tạo link mới</Button>

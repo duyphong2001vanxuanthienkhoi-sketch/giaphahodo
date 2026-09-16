@@ -592,7 +592,10 @@ export async function createApp(config, options = {}) {
     if(!/^[a-f0-9]{64}$/.test(req.params.token))throw new AppError(404,'Link lịch không còn hiệu lực.');
     const owner=await db.get('SELECT u.* FROM calendar_tokens c JOIN users u ON u.id=c.user_id WHERE c.token=? AND u.active=1', req.params.token);
     if(!owner)throw new AppError(404,'Link lịch không còn hiệu lực. Hãy mở Đỗ Gia và tạo link mới.');
-    res.type('text/calendar').set('Cache-Control','private, max-age=3600').send(await calendarFor(owner));
+    // Không cho giữ bản cũ trong bộ nhớ đệm: nhịp tự động đã có REFRESH-INTERVAL lo,
+    // còn khi người dùng chủ động kéo xuống làm mới thì họ muốn thấy ngay — mà đặt
+    // max-age một tiếng thì cái kéo tay ấy có thể chỉ lấy lại đúng bản cũ trong máy.
+    res.type('text/calendar').set('Cache-Control','private, max-age=0, must-revalidate').send(await calendarFor(owner));
   });
   app.get('/api/calendar.ics',auth,async (req,res) => {
     res.type('text/calendar').set('Content-Disposition','attachment; filename="coi-lich-ngay-gio.ics"').send(await calendarFor(req.user));
